@@ -319,7 +319,15 @@ function selOf(r) {
 const qtyOf = r => { const s = selOf(r); return s.f >= 0 && r.options[s.f] ? s.m * r.options[s.f].qty : (S.qty[r.id] ?? r.defaultQty); };
 
 const sheetErrorText = e => (e && e.message) || 'La Sheet ne répond pas pour le moment.';
+/* Google renvoie parfois une erreur passagère d'accès à la Sheet : on retente deux fois avant d'afficher l'erreur. */
+const TRANSIENT = /chec du service|Service .*failed|temporairement|timed? ?out|Lock|Le serveur BakeScale ne r/i;
 async function run(fn, ...a) {
+  for (let n = 0; ; n++) {
+    try { return await run1(fn, ...a); }
+    catch (e) { if (n >= 2 || !TRANSIENT.test(e.message || '')) throw e; await new Promise(r => setTimeout(r, 1500 * (n + 1))); }
+  }
+}
+async function run1(fn, ...a) {
   let r;
   try { r = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn, args: [TOKEN, ...a] }) }); }
   catch (e) { throw new Error('Pas de connexion au serveur BakeScale. Vérifie ton réseau puis réessaie.'); }
