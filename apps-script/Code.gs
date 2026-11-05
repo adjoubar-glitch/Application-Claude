@@ -3,7 +3,10 @@ var SHEET_ID = '1ZRWyzaKoa19PQx4Ysn1gs2aUc9KRMtXa87s9thydQiU';
 var TAB_PROD = 'App_Productions', TAB_STATUS = 'App_Statuts', TAB_INV = 'App_Invites', TAB_STOCK = 'App_Stock', TAB_MAT = 'App_Matériel', TAB_CMP = 'Comparatif Équipements';
 var HEAD_PROD = ['Identifiant', 'Recette', 'Date', 'Terminée', 'Stock déduit', 'Créée le', 'Données'];
 var HEAD_STATUS = ['Clé', 'Production', 'Bloc', 'État', 'Commentaire', 'Pris par', 'Mis à jour le'];
-var HEAD_INV = ['Identifiant', 'Nom', 'Téléphone', 'E-mail', 'Jeton', 'Actif', 'Créé le', 'Lien personnel'];
+var HEAD_INV = ['Identifiant', 'Nom', 'Téléphone', 'E-mail', 'Jeton', 'Actif', 'Créé le', 'Lien personnel', 'Onglets'];
+// Onglets qu'un invité peut ouvrir en plus de ses tâches (colonne I de App_Invites, séparés par des virgules).
+var TABS_ = ['dose', 'stock', 'mat'];
+function tabsOf_(v) { return String(v || '').split(/[,; ]+/).map(function (x) { return x.trim().toLowerCase(); }).filter(function (x) { return TABS_.indexOf(x) >= 0; }); }
 
 var TAB_RULES = 'App_Regles', TAB_OK = 'App_Accords', TAB_CALLS = 'App_Appels';
 var HEAD_OK = ['Identifiant', 'Nom', 'Version', 'Validé le'];
@@ -61,7 +64,7 @@ function doGet(e) {
 }
 
 /* API JSON pour l'application installable : POST {fn, args} -> {ok, result | error}. */
-var API_NAMES_ = ["api_audio", "api_accept", "api_call", "api_calls", "api_ack", "api_ntfy", "api_load", "api_board", "api_rev", "api_setQty", "api_addStock", "api_saveProduction", "api_deleteProduction", "api_finishProduction", "api_status", "api_invite", "api_revoke", "api_schema", "api_importSchemas"];
+var API_NAMES_ = ["api_audio", "api_accept", "api_call", "api_calls", "api_ack", "api_ntfy", "api_load", "api_board", "api_rev", "api_setQty", "api_addStock", "api_saveProduction", "api_deleteProduction", "api_finishProduction", "api_status", "api_invite", "api_setTabs", "api_restore", "api_remove", "api_revoke", "api_schema", "api_importSchemas"];
 function doPost(e) {
   var out;
   try {
@@ -76,16 +79,18 @@ function doPost(e) {
 
 function auth_(token) {
   if (!token) return null;
-  if (token === props_().getProperty('ADMIN_KEY')) return { role: 'chef', id: 'chef', name: 'Chef' };
+  if (token === props_().getProperty('ADMIN_KEY')) return { role: 'chef', id: 'chef', name: 'Chef', tabs: TABS_.slice() };
   var s = ss_().getSheetByName(TAB_INV); if (!s) return null;
   var rows = s.getDataRange().getValues();
-  for (var i = 1; i < rows.length; i++) if (rows[i][4] === token && rows[i][5] === true && rows[i][0] !== 'chef') return { role: 'equipe', id: String(rows[i][0]), name: String(rows[i][1]) };
+  for (var i = 1; i < rows.length; i++) if (rows[i][4] === token && rows[i][5] === true && rows[i][0] !== 'chef') return { role: 'equipe', id: String(rows[i][0]), name: String(rows[i][1]), tabs: tabsOf_(rows[i][8]) };
   return null;
 }
-function need_(token, chefOnly) {
+// perm : true = Chef seulement ; 'dose' | 'stock' | 'mat' = Chef ou invité ayant cet onglet.
+function need_(token, perm) {
   var a = auth_(token);
   if (!a) throw new Error('Ce lien n\'est plus valide.');
-  if (chefOnly && a.role !== 'chef') throw new Error('Action réservée au chef.');
+  if (perm === true && a.role !== 'chef') throw new Error('Action réservée au chef.');
+  if (typeof perm === 'string' && a.role !== 'chef' && a.tabs.indexOf(perm) < 0) throw new Error('Tu n\'as pas accès à cet onglet.');
   return a;
 }
 function revision_() { return DriveApp.getFileById(SHEET_ID).getLastUpdated().getTime(); }
@@ -94,7 +99,7 @@ function people_(withLinks) {
   var s = ss_().getSheetByName(TAB_INV); if (!s) return [];
   return s.getDataRange().getValues().slice(1).filter(function (r) { return r[0] && r[0] !== 'chef'; }).map(function (r) {
     var o = { id: String(r[0]), name: String(r[1]), active: r[5] === true };
-    if (withLinks) { o.phone = String(r[2]); o.mail = String(r[3]); o.url = String(r[7]); }
+    if (withLinks) { o.phone = String(r[2]); o.mail = String(r[3]); o.url = String(r[7]); o.tabs = tabsOf_(r[8]); o.created = r[6] instanceof Date ? r[6].toISOString() : String(r[6] || ''); }
     return o;
   });
 }
@@ -208,18 +213,18 @@ function api_load(token) {
   var me = need_(token), out = board_(me);
   out.me = me; out.rev = revision_(); out.images = schemaIds_(); out.url = linkBase_();
   out.people = people_(me.role === 'chef');
-  if (me.role !== 'chef') return out;
-  out.ntfy = ntfyInfo_();
+  if (me.role === 'chef') out.ntfy = ntfyInfo_();
+  var can = function (t) { return me.tabs.indexOf(t) >= 0; };
   var ss = ss_(), stock = ss.getSheetByName(TAB_STOCK), mat = ss.getSheetByName(TAB_MAT);
   out.recipes = [];
-  ss.getSheets().forEach(function (s) {
+  if (can('dose')) ss.getSheets().forEach(function (s) {
     var name = s.getName();
     if (/^App_/.test(name) || !/^Fiche Recette/i.test(String(s.getRange(1, 1).getValue()))) return;
     out.recipes.push({ title: name, id: String(s.getSheetId()), rows: clean_(s.getDataRange().getValues()) });
   });
-  out.stock = stock ? clean_(stock.getDataRange().getValues()).slice(1) : [];
-  out.mat = mat ? clean_(mat.getDataRange().getValues()).slice(1) : [];
-  out.compare = compare_();
+  out.stock = stock && can('stock') ? clean_(stock.getDataRange().getValues()).slice(1) : [];
+  out.mat = mat && can('mat') ? clean_(mat.getDataRange().getValues()).slice(1) : [];
+  out.compare = can('mat') ? compare_() : null;
   return out;
 }
 function api_board(token) {
@@ -227,7 +232,7 @@ function api_board(token) {
   out.people = people_(me.role === 'chef');
   return out;
 }
-function api_rev(token) { need_(token, true); return revision_(); }
+function api_rev(token) { need_(token); return revision_(); }
 
 function compare_() {
   var s = ss_().getSheetByName(TAB_CMP); if (!s) return null;
@@ -242,14 +247,14 @@ function compare_() {
 }
 
 function api_setQty(token, kind, row, value) {
-  need_(token, true); row = Number(row);
+  need_(token, kind === 'stock' ? 'stock' : 'mat'); row = Number(row);
   if (!(row >= 2)) throw new Error('Ligne invalide.');
   var s = ss_().getSheetByName(kind === 'stock' ? TAB_STOCK : TAB_MAT);
   s.getRange(row, kind === 'stock' ? 3 : 2).setValue(value === null ? '' : Number(value));
   return true;
 }
 function api_addStock(token, name, qty, unit, min) {
-  need_(token, true);
+  need_(token, 'stock');
   return withLock_(function () {
     var s = ss_().getSheetByName(TAB_STOCK);
     s.appendRow([String(name), '', Number(qty) || 0, String(unit), min === null ? '' : Number(min)]);
@@ -310,13 +315,37 @@ function api_status(token, pid, i, patch) {
     return true;
   });
 }
-function api_invite(token, name, phone, mail) {
+function api_invite(token, name, phone, mail, tabs) {
   need_(token, true);
   return withLock_(function () {
-    var s = tab_(TAB_INV, HEAD_INV), id = 'p' + Utilities.getUuid().slice(0, 8), jeton = Utilities.getUuid(), url = linkBase_() + '?i=' + jeton;
-    s.appendRow([id, String(name), "'" + String(phone || ''), String(mail || ''), jeton, true, new Date(), url]);
-    return { id: id, name: String(name), phone: String(phone || ''), mail: String(mail || ''), url: url, active: true };
+    var s = invTab_(), id = 'p' + Utilities.getUuid().slice(0, 8), jeton = Utilities.getUuid(), url = linkBase_() + '?i=' + jeton, t = tabsOf_((tabs || []).join(','));
+    s.appendRow([id, String(name), "'" + String(phone || ''), String(mail || ''), jeton, true, new Date(), url, t.join(',')]);
+    return { id: id, name: String(name), phone: String(phone || ''), mail: String(mail || ''), url: url, active: true, tabs: t };
   });
+}
+// Ajoute l'en-tête « Onglets » aux anciens onglets App_Invites.
+function invTab_() {
+  var s = tab_(TAB_INV, HEAD_INV);
+  if (String(s.getRange(1, 9).getValue()) !== 'Onglets') s.getRange(1, 9).setValue('Onglets').setFontWeight('bold');
+  return s;
+}
+function invRow_(s, id) {
+  var ids = s.getRange(1, 1, s.getLastRow(), 1).getValues();
+  for (var i = 1; i < ids.length; i++) if (ids[i][0] === id && id !== 'chef') return i + 1;
+  throw new Error('Personne introuvable.');
+}
+function api_setTabs(token, id, tabs) {
+  need_(token, true);
+  return withLock_(function () { var s = invTab_(), t = tabsOf_((tabs || []).join(',')); s.getRange(invRow_(s, id), 9).setValue(t.join(',')); return t; });
+}
+function api_restore(token, id) {
+  need_(token, true);
+  return withLock_(function () { var s = invTab_(); s.getRange(invRow_(s, id), 6).setValue(true); return true; });
+}
+// Supprime définitivement la ligne : le lien ne pourra plus jamais servir.
+function api_remove(token, id) {
+  need_(token, true);
+  return withLock_(function () { var s = invTab_(); s.deleteRow(invRow_(s, id)); return true; });
 }
 function api_revoke(token, id) {
   need_(token, true);

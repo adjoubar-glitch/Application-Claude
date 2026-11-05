@@ -299,7 +299,7 @@ const HOT = {
 const icon = (n, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true"><path d="${I[n]}"/></svg>`;
 
 const S = { view: 'home', filter: 'recettes', q: '', recipes: [], unparsed: [], stock: [], mat: [], cmp: { items: [], totalFR: null, totalAli: null, qty: null }, productions: [], status: {}, images: {}, profiles: {},
-  me: null, owner: false, rev: null, tab: null, qty: {}, sel: {}, prep: false, draft: null, finish: null, sheetErr: null, syncedAt: null, loading: false, seg: 'mine', busy: '', cooking: null, stockQ: '', stockCat: '', onlyLow: false, addOpen: false, invite: false, confirmed: {}, hl: {}, inv: { name: '', phone: '', mail: '', msg: '', url: '' }, people: [], imgs: {}, imgWait: {}, serverImages: [], rules: { items: [], version: '', hasAudio: false }, accepted: false, calls: [], accords: [], ntfy: null, audio: '', heard: false, playing: false, seenCalls: {}, reread: false };
+  me: null, owner: false, rev: null, tab: null, qty: {}, sel: {}, prep: false, draft: null, finish: null, sheetErr: null, syncedAt: null, loading: false, seg: 'mine', busy: '', cooking: null, stockQ: '', stockCat: '', onlyLow: false, addOpen: false, invite: false, confirmed: {}, hl: {}, inv: { name: '', phone: '', mail: '', msg: '', url: '', tabs: [] }, tabs: [], people: [], imgs: {}, imgWait: {}, serverImages: [], rules: { items: [], version: '', hasAudio: false }, accepted: false, calls: [], accords: [], ntfy: null, audio: '', heard: false, playing: false, seenCalls: {}, reread: false };
 
 const $ = id => document.getElementById(id);
 const esc = s => T(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -369,9 +369,9 @@ async function refresh() {
   S.loading = true; drawTop();
   try {
     const d = await run('api_load');
-    S.me = d.me.id; S.meName = d.me.name; S.owner = d.me.role === 'chef'; S.rev = d.rev; S.serverImages = d.images || []; if (d.ntfy) S.ntfy = d.ntfy;
+    S.me = d.me.id; S.meName = d.me.name; S.owner = d.me.role === 'chef'; S.tabs = d.me.tabs || []; S.rev = d.rev; S.serverImages = d.images || []; if (d.ntfy) S.ntfy = d.ntfy;
     applyBoard(d);
-    if (S.owner) {
+    if (S.owner || S.tabs.length) {
       const recipes = [], unparsed = [];
       for (const t of d.recipes) {
         const r = parseRecipe(t.title, t.id, t.rows);
@@ -385,7 +385,7 @@ async function refresh() {
       for (const s of S.stock) if (('stock:' + s.row) in pending) s.qty = pending['stock:' + s.row];
       for (const m of S.mat) if (('mat:' + m.row) in pending) m.qty = pending['mat:' + m.row];
       store.set('cache', { recipes: S.recipes, stock: S.stock, mat: S.mat, cmp: S.cmp, at: Date.now() });
-      scanNewTabs();
+      if (S.owner) scanNewTabs();
     }
     S.syncedAt = Date.now(); S.sheetErr = null;
   } catch (e) { S.sheetErr = e; }
@@ -436,8 +436,9 @@ function render() {
   S.dirty = false;
   drawTop();
   const low = S.stock.filter(isLow).length;
-  const tabs = S.owner ? [['home', 'Accueil', 'home'], ['dose', 'Doseur', 'scale'], ['tasks', 'Tâches', 'tasks'], ['stock', 'Stocks', 'stock'], ['mat', 'Matériel', 'mat']] : [];
-  $('nav').hidden = !tabs.length;
+  const tabs = [['home', 'Accueil', 'home'], ['dose', 'Doseur', 'scale'], ['tasks', 'Tâches', 'tasks'], ['stock', 'Stocks', 'stock'], ['mat', 'Matériel', 'mat']].filter(([k]) => S.owner || k === 'tasks' || S.tabs.includes(k));
+  if (!S.owner && !tabs.some(([k]) => k === S.view)) S.view = 'tasks';
+  $('nav').hidden = tabs.length < 2;
   $('navin').innerHTML = tabs.map(([k, l, ic]) => `<button data-act="nav" data-v="${k}" ${S.view === k ? 'aria-current="page"' : ''}><span class="w">${icon(ic, 24)}${k === 'stock' && low ? `<sup>${low}</sup>` : ''}</span>${l}</button>`).join('');
   const v = { home: viewHome, dose: S.tab ? viewRecipe : viewRecipes, tasks: S.draft ? viewDraft : S.finish ? viewFinish : viewTasks, stock: viewStock, mat: viewMat }[S.view] || viewTasks;
   $('main').innerHTML = (S.busy ? `<div class="panel warn small">${esc(S.busy)}</div>` : '') + callBanner() + errBanner() + v();
@@ -475,6 +476,7 @@ function viewHome() {
     ${firstOpen.length ? firstOpen.map(x => `<div class="row between small" style="background:var(--sunk);padding:10px 14px;border-radius:12px"><span class="grow"><b>${esc(x.b.name)}</b><br><span class="muted">${esc(x.p.recipeName)} · ${esc(whoName(assignee(x.p, x.i)))}</span></span>${statePill(statusOf(x.p.id, x.i).state)}</div>`).join('') : `<div class="row nw" style="background:var(--sunk);padding:12px 14px;border-radius:12px"><span style="color:var(--ok)">${icon('cloud', 22)}</span><span class="small">Aucune tâche en attente dans l'atelier.</span></div>`}
     ${S.invite ? inviteNote() : ''}
     <div class="row"><button class="btn block" data-act="invite">${icon('people', 20)}Inviter</button><button class="btn brown block" data-act="nav" data-v="dose">${icon('send', 20)}Doser &amp; assigner</button></div></section>
+  ${accessPanel()}
   ${S.cmp.totalFR != null ? `<section class="panel slate"><div class="row nw between"><span style="color:var(--amber)">${icon('swap', 26)}</span><b class="grow" style="font-size:1.15rem">Bilan matériel atelier</b><button class="btn link" data-act="nav" data-v="mat">Voir tout</button></div>
     <div class="row between"><span><span class="small muted">Fournisseurs FR / UE (HT)</span><br><span class="big">${eur(S.cmp.totalFR)}</span></span><span style="text-align:right"><span class="small muted">Estimation Alibaba livré</span><br><span class="big" style="color:var(--ok)">${eur(S.cmp.totalAli)}</span></span></div>
     ${save != null ? `<div class="panel ok small" style="padding:10px 14px;border-radius:12px">Écart estimé : ${eur(save)} en faveur d'${save >= 0 ? 'Alibaba' : 'FR / UE'}, avant garantie et SAV.</div>` : ''}</section>` : ''}`;
@@ -493,9 +495,21 @@ const inviteNote = () => `<div class="panel warn small" style="border-radius:16p
   : `<label class="f">Nom<input id="inv-name" data-keep placeholder="Prénom" value="${esc(S.inv.name)}"></label>
     <label class="f">Numéro WhatsApp (facultatif)<input id="inv-phone" data-keep type="tel" inputmode="tel" placeholder="06 12 34 56 78" value="${esc(S.inv.phone)}"></label>
     <label class="f">Adresse e-mail (facultatif)<input id="inv-mail" data-keep type="email" inputmode="email" placeholder="prenom@exemple.fr" value="${esc(S.inv.mail)}"></label>
+    <span class="f" style="font-size:.875rem;font-weight:500">Onglets en plus de ses tâches</span>${tabChips(S.inv.tabs, 'inv-tab', '')}
     <button class="btn primary" data-act="inv-create">Créer son lien</button>`}
-  ${S.people.filter(p => p.active).length ? `<b style="margin-top:6px">Équipe</b>${S.people.filter(p => p.active).map(p => `<div class="row between"><span class="grow">${esc(p.name)}</span><button class="btn link" data-act="inv-open" data-id="${esc(p.id)}">Renvoyer</button><button class="btn link" data-act="inv-revoke" data-id="${esc(p.id)}">Retirer</button></div>`).join('')}` : ''}
 </div>`;
+const TAB_LABELS = [['dose', 'Doseur'], ['stock', 'Stocks'], ['mat', 'Matériel']];
+const tabChips = (sel, act, id) => `<div class="chips" style="flex-wrap:wrap">${TAB_LABELS.map(([k, l]) => `<button class="chip" data-act="${act}" data-id="${esc(id)}" data-t="${k}" aria-pressed="${sel.includes(k)}">${l}</button>`).join('')}</div>`;
+function accessPanel() {
+  const all = S.people.slice().sort((a, b) => (b.active - a.active) || a.name.localeCompare(b.name, 'fr'));
+  const row = p => `<div style="background:var(--sunk);border-radius:14px;padding:12px 14px;display:grid;gap:8px">
+    <div class="row between nw"><b class="grow">${esc(p.name)}</b>${p.active ? '<span class="pill ok">Accès actif</span>' : '<span class="pill plain">Accès retiré</span>'}</div>
+    ${p.active ? `<span class="small muted">Tâches, plus :</span>${tabChips(p.tabs || [], 'acc-tab', p.id)}` : ''}
+    <div class="row">${p.active ? `<button class="btn link" data-act="acc-send" data-id="${esc(p.id)}">Renvoyer le lien</button><button class="btn link" data-act="inv-revoke" data-id="${esc(p.id)}">Retirer l'accès</button>` : `<button class="btn link" data-act="acc-restore" data-id="${esc(p.id)}">Rendre l'accès</button>`}<button class="btn link" style="color:var(--bad)" data-act="acc-remove" data-id="${esc(p.id)}">Supprimer</button></div></div>`;
+  return `<section class="panel tile2"><div class="row nw between"><span class="round" style="background:var(--brown-soft);color:var(--amber)">${icon('people')}</span><span class="grow"><b style="font-size:1.15rem">Qui a accès</b><br><span class="small muted">${all.filter(p => p.active).length} accès actif${all.filter(p => p.active).length > 1 ? 's' : ''}</span></span></div>
+    ${all.length ? all.map(row).join('') : '<span class="small muted">Personne n\'est invité pour l\'instant.</span>'}
+    <span class="small muted">« Retirer » coupe le lien tout de suite, et tu peux le rendre plus tard. « Supprimer » efface la personne de la liste.</span></section>`;
+}
 /* ---------- Doseur ---------- */
 function viewRecipes() {
   return `<section style="display:grid;gap:12px">
@@ -541,7 +555,7 @@ function viewRecipe() {
   return `<button class="btn link" data-act="back" style="justify-self:start;margin-top:12px">← Toutes les recettes</button>
   ${head(false)}
   <section class="panel ok" style="padding:14px 18px"><div class="row between"><span class="grow" style="flex-basis:170px"><b>${opt ? `${sel.m} × ${esc(opt.label)}${opt.size ? ' · ' + esc(opt.size) : ''}` : `${nf(q, 2)} ${esc(r.unit)}`}</b><br><span class="small muted">× ${nf(f, 2)} · ${nf(r.baseWeight * f, 0)} g au total</span></span><button class="btn" data-act="reformat">Changer le format</button></div></section>
-  <div class="row"><button class="btn primary block" data-act="draft">${icon('send', 20)}Déléguer les blocs</button><button class="btn block" data-act="prep">${S.prep ? 'Voir par bloc' : 'Liste de préparation'}</button><button class="btn block" data-act="cook">${S.cooking ? 'Quitter le mode cuisine' : 'Mode cuisine'}</button></div>
+  <div class="row">${S.owner ? `<button class="btn primary block" data-act="draft">${icon('send', 20)}Déléguer les blocs</button>` : ''}<button class="btn block" data-act="prep">${S.prep ? 'Voir par bloc' : 'Liste de préparation'}</button><button class="btn block" data-act="cook">${S.cooking ? 'Quitter le mode cuisine' : 'Mode cuisine'}</button></div>
   ${S.prep ? `<section style="display:grid;gap:10px"><h3>Liste de préparation</h3><div class="block" style="background:var(--tile);border-radius:18px;overflow:hidden">${consolidated(r.blocks, f).map((it, i) => ingRow(r.id, 'p', i, it, 1)).join('')}</div></section>`
     : `<section style="display:grid;gap:10px"><h3>Pesées</h3>${r.blocks.map((b, bi) => `<details class="block" open><summary><span>${esc(b.name)}</span><span class="pill warn">${nf(b.items.filter(weighs).reduce((a, x) => a + x.qty, 0) * f, 0)} g</span></summary>${b.items.map((it, i) => ingRow(r.id, bi, i, it, f)).join('')}</details>`).join('')}</section>`}
   ${schemaSection(img, r.legend, r.layers, r.sketch, r.name, r.id)}
@@ -727,11 +741,16 @@ const ACT = {
   nav(d) { S.view = d.v; S.draft = null; S.finish = null; if (d.v === 'dose') S.tab = null; render(); window.scrollTo(0, 0); },
   history() { S.view = 'tasks'; S.seg = 'hist'; S.draft = null; S.finish = null; render(); window.scrollTo(0, 0); },
   seg(d) { S.seg = d.v; render(); },
-  invite() { S.invite = !S.invite; S.inv = { name: '', phone: '', mail: '', msg: '', url: '' }; render(); },
+  invite() { S.invite = !S.invite; S.inv = { name: '', phone: '', mail: '', msg: '', url: '', tabs: [] }; render(); },
   notify(d) { const p = S.productions.find(x => x.id === d.id), b = p.blocks[+d.i], w = assignee(p, +d.i), m = S.people.find(x => x.id === w.id); S.seg = 'prods'; S.invite = true; S.inv = { name: m ? m.name : '', phone: m ? m.phone : '', mail: m ? m.mail : '', url: m ? m.url : '', msg: m ? `Bonjour ${m.name}, je te confie le bloc « ${b.name} » de ${p.recipeName}, prévu le ${p.date}, pour ${nf(p.qty, 2)} ${p.unit}. Tout est ici : ${m.url}` : '' }; render(); window.scrollTo(0, 0); },
   async 'inv-copy'(d, el) { const m = $('inv-msg'); try { await navigator.clipboard.writeText(m.value); el.textContent = 'Message copié'; } catch { m.select(); try { document.execCommand('copy'); el.textContent = 'Message copié'; } catch { el.textContent = 'Sélectionné : copie-le'; } } },
-  async 'inv-create'(d, el) { S.inv.name = T($('inv-name').value); S.inv.phone = T($('inv-phone').value); S.inv.mail = T($('inv-mail').value); if (!S.inv.name) { S.busy = 'Indique le nom de la personne.'; render(); return; } el.disabled = true; try { const p = await run('api_invite', S.inv.name, S.inv.phone, S.inv.mail); S.people = S.people.concat([p]); S.inv.url = p.url; } catch (e) { S.busy = 'Le lien n\'a pas pu être créé. ' + sheetErrorText(e); } render(); },
-  'inv-new'() { S.inv = { name: '', phone: '', mail: '', msg: '', url: '' }; render(); },
+  async 'inv-create'(d, el) { S.inv.name = T($('inv-name').value); S.inv.phone = T($('inv-phone').value); S.inv.mail = T($('inv-mail').value); if (!S.inv.name) { S.busy = 'Indique le nom de la personne.'; render(); return; } el.disabled = true; try { const p = await run('api_invite', S.inv.name, S.inv.phone, S.inv.mail, S.inv.tabs); S.people = S.people.concat([p]); S.inv.url = p.url; } catch (e) { S.busy = 'Le lien n\'a pas pu être créé. ' + sheetErrorText(e); } render(); },
+  'inv-tab'(d) { const s = S.inv.tabs; S.inv.tabs = s.includes(d.t) ? s.filter(x => x !== d.t) : s.concat([d.t]); render(); },
+  async 'acc-tab'(d) { const p = S.people.find(x => x.id === d.id); if (!p) return; const before = p.tabs || []; p.tabs = before.includes(d.t) ? before.filter(x => x !== d.t) : before.concat([d.t]); render(); try { p.tabs = await run('api_setTabs', p.id, p.tabs); } catch (e) { p.tabs = before; S.busy = 'Les onglets n\'ont pas été modifiés. ' + sheetErrorText(e); } render(); },
+  'acc-send'(d) { const m = S.people.find(x => x.id === d.id); S.invite = true; S.inv = { name: m.name, phone: m.phone, mail: m.mail, msg: '', url: m.url, tabs: m.tabs || [] }; render(); },
+  async 'acc-restore'(d) { try { await run('api_restore', d.id); await refreshBoard(); } catch (e) { S.busy = sheetErrorText(e); render(); } },
+  async 'acc-remove'(d, el) { if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = 'Confirmer la suppression'; return; } try { await run('api_remove', d.id); await refreshBoard(); } catch (e) { S.busy = sheetErrorText(e); render(); } },
+  'inv-new'() { S.inv = { name: '', phone: '', mail: '', msg: '', url: '', tabs: [] }; render(); },
   'inv-open'(d) { const m = S.people.find(x => x.id === d.id); S.inv = { name: m.name, phone: m.phone, mail: m.mail, msg: '', url: m.url }; render(); },
   async 'inv-revoke'(d, el) { if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = 'Confirmer'; return; } try { await run('api_revoke', d.id); await refreshBoard(); } catch (e) { S.busy = sheetErrorText(e); render(); } },
   async ack(d) { const c = S.calls.find(x => x.id === d.id); if (c) c.ack = true; render(); try { await run('api_ack', d.id); } catch (e) { S.busy = sheetErrorText(e); render(); } },
@@ -833,11 +852,11 @@ async function boot() {
   render();
   setInterval(async () => {
     if (document.hidden) return;
-    if (S.owner) { try { const r = await run('api_rev'); if (r !== S.rev) await refresh(); } catch (e) {} }
+    if (S.owner || S.tabs.length) { try { const r = await run('api_rev'); if (r !== S.rev) await refresh(); else if (!S.owner) refreshBoard(); } catch (e) {} }
     else refreshBoard();
   }, S.owner ? 60000 : 30000);
   if (S.owner) setInterval(async () => { if (document.hidden) return; try { const before = S.calls.filter(c => !c.ack).length; S.calls = await run('api_calls'); alertNewCalls(); if (S.calls.length !== before) render(); } catch (e) {} }, 15000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (S.owner) refresh(); else refreshBoard(); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (S.owner || S.tabs.length) refresh(); else refreshBoard(); } });
 }
 drawTop();
 boot();
