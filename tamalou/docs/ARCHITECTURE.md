@@ -236,7 +236,7 @@ Côté code : `shared/src/effects.ts` (`EFFECT_EVENTS`, `DEFAULT_EFFECTS`,
 
 1. ✅ Architecture + modèle d'état (ce document, `shared/`, `server/src/engine/state.ts`)
 2. ✅ Moteur + tests Vitest (`server/src/engine/`, `server/test/`)
-3. Serveur Socket.IO (salons, codes à 4 lettres, reconnexion, horodatage)
+3. ✅ Serveur Socket.IO (`server/src/rooms/`, `server/src/socket.ts`)
 4. Bots IA (mémoire par niveau, décisions, doublons, simulation de 200 parties)
 5. Client + thème graphique jungle (cartes SVG, singes, dos de carte, jeton Dealer)
 6. Sons, pop-ups et les 14 animations jungle
