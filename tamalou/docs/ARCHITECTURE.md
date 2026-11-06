@@ -187,7 +187,7 @@ Page `/admin`, protégée par un mot de passe défini dans la variable d'environ
 ## 8. Plan des étapes
 
 1. ✅ Architecture + modèle d'état (ce document, `shared/`, `server/src/engine/state.ts`)
-2. Moteur + tests Vitest (pouvoirs, hors tour, fenêtre 1,5 s, pénalités, fin de manche, égalités, pioche vide)
+2. ✅ Moteur + tests Vitest (`server/src/engine/`, `server/test/`)
 3. Serveur Socket.IO (salons, codes à 4 lettres, reconnexion, horodatage)
 4. Bots IA (mémoire par niveau, décisions, doublons, simulation de 200 parties)
 5. Client + thème graphique jungle (cartes SVG, singes, dos de carte, jeton Dealer)

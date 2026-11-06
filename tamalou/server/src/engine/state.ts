@@ -74,6 +74,19 @@ export interface RoundState {
   reveals: Reveal[];
   /** Fin de la phase en cours (vue initiale 5 s, révélation finale). */
   phaseEndsAt: number | null;
+  /** Dernier tour terminé alors qu'une fenêtre de doublon était ouverte : on finit après sa résolution. */
+  endPending: boolean;
+  result: RoundResult | null;
+}
+
+export interface RoundResult {
+  round: number;
+  callerId: PlayerId | null;
+  scores: Record<PlayerId, number>;
+  hands: Record<PlayerId, (Card | null)[]>;
+  winnerIds: PlayerId[];
+  callerWon: boolean;
+  totals: Record<PlayerId, number>;
 }
 
 export interface EngineState {
@@ -84,6 +97,7 @@ export interface EngineState {
   round: RoundState | null;
   roundsPlayed: number;
   gameOver: boolean;
+  gameWinnerIds: PlayerId[];
   seq: number;
 }
 
@@ -91,7 +105,7 @@ export interface EngineState {
 export interface EngineOutput {
   fx: GameFx[];
   /** Entrées de journal, déjà filtrées par destinataire. */
-  logs: { audience: 'all' | PlayerId[]; text: string; except?: PlayerId[] }[];
+  logs: { to: 'all' | PlayerId[]; text: string }[];
   /** Messages système à publier dans le tchat. */
   system: string[];
 }

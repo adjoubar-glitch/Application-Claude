@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@tamalou/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
   }
 }
