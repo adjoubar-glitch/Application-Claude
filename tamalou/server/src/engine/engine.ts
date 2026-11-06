@@ -295,7 +295,7 @@ export class TamalouEngine {
       case 'peekOwn': {
         this.ownCard(me, use.slot);
         this.reveal(playerId, use.slot, [playerId], now + TIMINGS.peekOwnMs, 'peekOwn');
-        this.fx({ type: 'peek', byPlayerId: playerId, target: { playerId, slot: use.slot } });
+        this.fx({ type: 'peek', power: 'peekOwn', byPlayerId: playerId, target: { playerId, slot: use.slot } });
         this.log('all', `${me.name} regarde une de ses cartes.`);
         this.endTurn(now);
         return;
@@ -303,7 +303,7 @@ export class TamalouEngine {
       case 'peekOther': {
         this.otherCard(playerId, use.target, use.slot);
         this.reveal(use.target, use.slot, [playerId], now + TIMINGS.peekOtherMs, 'peekOther');
-        this.fx({ type: 'peek', byPlayerId: playerId, target: { playerId: use.target, slot: use.slot } });
+        this.fx({ type: 'peek', power: 'peekOther', byPlayerId: playerId, target: { playerId: use.target, slot: use.slot } });
         this.logPeek(playerId, use.target);
         this.endTurn(now);
         return;
@@ -321,7 +321,7 @@ export class TamalouEngine {
         this.otherCard(playerId, use.target, use.slot);
         // Visible jusqu'à la décision.
         this.reveal(use.target, use.slot, [playerId], Number.POSITIVE_INFINITY, 'king');
-        this.fx({ type: 'peek', byPlayerId: playerId, target: { playerId: use.target, slot: use.slot } });
+        this.fx({ type: 'peek', power: 'peekAndSwap', byPlayerId: playerId, target: { playerId: use.target, slot: use.slot } });
         this.logPeek(playerId, use.target);
         r.step = { kind: 'kingDecide', target: use.target, slot: use.slot };
         return;
@@ -586,7 +586,7 @@ export class TamalouEngine {
     const a = me.slots[ownSlot]!;
     me.slots[ownSlot] = other.slots[slot]!;
     other.slots[slot] = a;
-    this.fx({ type: 'swap', a: { playerId: actor, slot: ownSlot }, b: { playerId: target, slot }, blind });
+    this.fx({ type: 'swap', power: blind ? 'blindSwap' : 'peekAndSwap', a: { playerId: actor, slot: ownSlot }, b: { playerId: target, slot }, blind });
     const how = blind ? 'à l’aveugle ' : '';
     this.log([target], `😱 ${me.name} a échangé ${how}une de ses cartes avec une des tiennes !`);
     this.log(this.othersExcept(actor, target), `${me.name} échange ${how}une carte avec ${other.name}.`);

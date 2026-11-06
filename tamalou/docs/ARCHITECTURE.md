@@ -162,27 +162,75 @@ si tu veux en changer un avant l'étape 2.
 | 15 | Vue initiale de 5 s | Chacun voit ses cartes 2 et 3 (rangée du bas). Les bots les mémorisent selon leur niveau. |
 | 16 | Remplaçant après 60 s de déconnexion | Le bot Moyen ne connaît que ce que le joueur a vu pendant la manche **depuis sa prise de relais** (il ne lit pas la mémoire du joueur, il n'en a pas). À son retour, le joueur reprend la main immédiatement. |
 
-## 7. Espace Admin : sons et cartes personnalisés
+## 7. Espace Admin : sons, cartes, animations et effets
 
-Page `/admin`, protégée par un mot de passe défini dans la variable d'environnement
-`ADMIN_PASSWORD` du serveur (rien n'est en dur dans le code).
+Page `/admin`, protégée par un mot de passe (`ADMIN_PASSWORD`, variable d'environnement
+du serveur, jamais dans le code).
 
-- **Sons** : un emplacement par son (`monkey-laugh`, `jungle-yell`, `fail-jingle`,
-  `gorilla-slow`, `duplicate-win`, `draw`, `discard`, `swap`, `peek`, `tamalou`,
-  `round-win`). Formats mp3, ogg, wav, m4a, 3 Mo maximum. Bouton écouter, bouton remettre le son d'origine.
-- **Cartes** : une grille des 52 faces + le dos. Chaque case accepte une image
-  (png, jpg, webp, svg, 2 Mo maximum) ; nom stocké `hearts-1`, `spades-13`, `back`…
-  Chargement en lot possible : on dépose plusieurs fichiers déjà nommés ainsi.
-  Aperçu immédiat, bouton remettre la carte SVG d'origine.
-- **Fonctionnement** : le serveur range les fichiers dans `ASSETS_DIR` (par défaut
-  `/data/assets`) et les sert sous `/assets/…`. `GET /api/assets` renvoie la liste
-  (`AssetManifest`) avec un numéro de version ; les téléphones la rechargent au
-  lancement et après chaque modification (événement Socket.IO), et retombent sur
-  les sons et cartes intégrés pour tout ce qui n'est pas personnalisé.
-- **Persistance** : c'est la seule donnée conservée sur disque. Sur Fly.io, un
-  volume gratuit la garde entre deux redémarrages (option recommandée). Sur Render
-  en gratuit, le disque est effacé à chaque redémarrage : les fichiers chargés
-  seraient perdus ; l'Admin propose donc aussi un export/import en .zip.
+### 7.1 Stockage dans ton Google Drive, dossier « Tamaloo »
+
+Tous les fichiers chargés (sons, images de cartes, animations) et le paramétrage
+(`effects.json`, `cards.json`) sont rangés dans un dossier **Tamaloo** de ton Drive.
+Ils survivent donc aux redémarrages et aux redéploiements, quel que soit l'hébergeur
+(Render gratuit compris).
+
+```mermaid
+flowchart LR
+  ADM[Admin /admin] -- upload --> SRV[Serveur Tamalou]
+  SRV -- "POST (clé secrète)" --> GAS[Script Google Apps Script\n« Tamaloo Drive »]
+  GAS --> DRV[(Drive : dossier Tamaloo)]
+  SRV -- "au démarrage : télécharge tout" --> CACHE[Cache disque local]
+  CACHE -- "/assets/…" --> TEL[Téléphones]
+```
+
+- **Pont Apps Script**, comme pour BakeScale : un petit script déployé en
+  application web, sous ton compte, crée le dossier `Tamaloo` au premier appel,
+  puis liste, écrit, lit et supprime les fichiers. Le serveur l'appelle avec une clé
+  secrète (`DRIVE_BRIDGE_URL` + `DRIVE_BRIDGE_KEY`). Pas de console Google Cloud
+  ni de compte de service à créer. (Un compte de service ne marcherait pas avec un
+  Gmail personnel : il n'a pas d'espace de stockage à lui.)
+- **Les téléphones ne parlent jamais à Drive** : le serveur garde une copie locale
+  et la sert lui-même, vite et sans exposer ton Drive. Au démarrage, il recharge la
+  copie depuis Drive.
+- **Sans pont configuré** (en local pour développer), le serveur stocke sur son disque.
+
+### 7.2 Fichiers chargeables
+
+| Type | Formats | Taille max |
+| --- | --- | --- |
+| Sons | mp3, ogg, wav, m4a | 3 Mo |
+| Images de cartes | png, jpg, webp, svg ; une case par face (52) + le dos ; dépôt en lot si nommés `hearts-1`, `spades-13`, `back`… | 2 Mo |
+| Animations | GIF, WebP/PNG animés, vidéo courte WebM (fond transparent) ou MP4, Lottie (.json, exporté d'After Effects ou LottieFiles) | 5 Mo |
+
+### 7.3 Paramétrage des effets
+
+Un tableau **événement × rôle**. Pour chaque case : son, animation, texte
+(`[PSEUDO]`, `[CIBLE]`), durée, vibration, plein écran ou bandeau, secousse.
+Bouton « Tester » pour voir l'effet sur son téléphone, « Par défaut » pour revenir à l'original.
+
+Rôles : **auteur** (celui qui joue le pouvoir : mis en avant, il trolle),
+**victime** (celui qui subit), **les autres** (la table).
+
+| Événement | Auteur | Victime | Les autres |
+| --- | --- | --- | --- |
+| Pénalité mauvais tour | | singe moqueur, secousse | « Bien joué singe [PSEUDO] ! » |
+| Pénalité mauvais doublon | | boule noire | boule noire (même pop-up, liste des fautifs) |
+| Doublon trop lent | | Gorille + drapeau de la Jungle | |
+| Doublon réussi | singe héros sur sa liane | | bandeau |
+| 7/8 regarder sa carte | singe espion | | bandeau |
+| 9/10 regarder une carte adverse | « Agent [PSEUDO] en mission » | œil géant « On a maté ta carte ! » | bandeau |
+| Valet/Dame échange à l'aveugle | singe voleur qui file avec la carte | singe en larmes, poches vides | bandeau |
+| Roi noir : regard | singe roi sur son trône | « Le Roi lorgne ta carte… » | bandeau |
+| Roi noir : échange | singe roi qui se sert | pied de gorille qui écrase | bandeau |
+| Tamalou | tambours | tambours | |
+| Fin de manche | volcan à confettis bananes | pluie de bananes | |
+
+Chaque case a une animation par défaut **dessinée par moi en SVG + CSS**
+(14 animations jungle originales). Tu peux en remplacer n'importe laquelle par ta
+propre animation chargée dans l'Admin, case par case.
+
+Côté code : `shared/src/effects.ts` (`EFFECT_EVENTS`, `DEFAULT_EFFECTS`,
+`effectFor(fx, joueur)` qui dit quel rôle joue quel effet).
 
 ## 8. Plan des étapes
 
@@ -191,7 +239,7 @@ Page `/admin`, protégée par un mot de passe défini dans la variable d'environ
 3. Serveur Socket.IO (salons, codes à 4 lettres, reconnexion, horodatage)
 4. Bots IA (mémoire par niveau, décisions, doublons, simulation de 200 parties)
 5. Client + thème graphique jungle (cartes SVG, singes, dos de carte, jeton Dealer)
-6. Sons et pop-ups
+6. Sons, pop-ups et les 14 animations jungle
 7. Tchat
-8. PWA + espace Admin (sons et cartes)
+8. PWA + espace Admin (sons, cartes, animations, effets, stockage Drive « Tamaloo »)
 9. Déploiement (Dockerfile + README pas à pas)
