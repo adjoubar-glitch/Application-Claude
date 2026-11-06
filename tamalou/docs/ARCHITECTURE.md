@@ -15,7 +15,8 @@ tamalou/
 │       ├── rooms/    salons en mémoire (Map), jetons de reconnexion, remplaçants
 │       └── index.ts  Express (sert aussi le build client) + Socket.IO
 ├── client/   React + Vite + Tailwind, PWA, cartes et singes en SVG
-│   └── public/sounds/  monkey-laugh.mp3, jungle-yell.mp3, fail-jingle.mp3…
+│   ├── src/admin/      espace Admin (/admin) : chargement des sons et des cartes
+│   └── public/sounds/  sons par défaut : monkey-laugh.mp3, jungle-yell.mp3, fail-jingle.mp3…
 └── Dockerfile  un seul service (Render ou Fly.io)
 ```
 
@@ -148,10 +149,10 @@ si tu veux en changer un avant l'étape 2.
 | 2 | Qu'est-ce qui déclenche MAUVAIS TOUR ? | Toute action de tour (piocher, prendre la défausse, échanger, défausser, pouvoir, Tamalou) envoyée par un autre joueur que celui dont c'est le tour. Les doublons ne sont jamais concernés. |
 | 3 | Action invalide pendant son propre tour (piocher deux fois…) | Refus simple avec un message, sans pénalité. |
 | 4 | Défausse pendant une fenêtre de doublon | Pendant les 1,5 s, les actions qui changent le dessus de la défausse (défausser, échanger, prendre la défausse) sont mises en attente avec le message « Attends la fin de la tentative… ». Piocher reste possible. Sans ça, la carte visée changerait en cours de fenêtre. |
-| 5 | Doublon réussi | La carte rejoint la défausse et devient le nouveau dessus : un autre joueur peut enchaîner un doublon sur elle. Sa place reste vide. |
+| 5 | Doublon réussi | Un seul gagnant par fenêtre : le plus rapide parmi les vrais doublons. Les autres vrais doublons reprennent leur carte sans pénalité, avec une pop-up Gorille « Tu feras mieux la prochaine fois ! » et le drapeau de la Jungle (pour eux seuls). La carte gagnante rejoint la défausse et devient le nouveau dessus : un autre joueur peut enchaîner un doublon sur elle. Sa place reste vide. |
 | 6 | Doublon pendant la vue initiale de 5 s | Refusé sans pénalité (la partie n'a pas commencé). |
 | 7 | Faux doublon de la carte qu'on tient en main | Impossible : le doublon vise toujours une carte de sa grille. |
-| 8 | L'annonceur Tamalou | Ne joue plus et ne peut plus faire de doublon. Ses cartes ne peuvent plus être échangées (Valet, Dame, Roi noir) ; elles peuvent encore être regardées (9, 10, Roi noir sans échange). |
+| 8 | L'annonceur Tamalou | Ne joue plus de tour, mais **peut encore faire des doublons** (et peut en rater un : pénalité normale). Ses cartes ne peuvent plus être échangées (Valet, Dame, Roi noir) ; elles peuvent encore être regardées (9, 10, Roi noir sans échange). |
 | 9 | Plus aucune carte | Au début de son tour, le serveur annonce Tamalou automatiquement pour lui. |
 | 10 | Pénalité quand la pioche est vide | On remélange la défausse sauf sa carte du dessus. S'il n'y a vraiment plus rien, pas de carte de pénalité (cas extrême). |
 | 11 | Faux doublon révélé | Visible par tous 2 s, puis remis à la même place, face cachée. |
@@ -161,7 +162,29 @@ si tu veux en changer un avant l'étape 2.
 | 15 | Vue initiale de 5 s | Chacun voit ses cartes 2 et 3 (rangée du bas). Les bots les mémorisent selon leur niveau. |
 | 16 | Remplaçant après 60 s de déconnexion | Le bot Moyen ne connaît que ce que le joueur a vu pendant la manche **depuis sa prise de relais** (il ne lit pas la mémoire du joueur, il n'en a pas). À son retour, le joueur reprend la main immédiatement. |
 
-## 7. Plan des étapes
+## 7. Espace Admin : sons et cartes personnalisés
+
+Page `/admin`, protégée par un mot de passe défini dans la variable d'environnement
+`ADMIN_PASSWORD` du serveur (rien n'est en dur dans le code).
+
+- **Sons** : un emplacement par son (`monkey-laugh`, `jungle-yell`, `fail-jingle`,
+  `gorilla-slow`, `duplicate-win`, `draw`, `discard`, `swap`, `peek`, `tamalou`,
+  `round-win`). Formats mp3, ogg, wav, m4a, 3 Mo maximum. Bouton écouter, bouton remettre le son d'origine.
+- **Cartes** : une grille des 52 faces + le dos. Chaque case accepte une image
+  (png, jpg, webp, svg, 2 Mo maximum) ; nom stocké `hearts-1`, `spades-13`, `back`…
+  Chargement en lot possible : on dépose plusieurs fichiers déjà nommés ainsi.
+  Aperçu immédiat, bouton remettre la carte SVG d'origine.
+- **Fonctionnement** : le serveur range les fichiers dans `ASSETS_DIR` (par défaut
+  `/data/assets`) et les sert sous `/assets/…`. `GET /api/assets` renvoie la liste
+  (`AssetManifest`) avec un numéro de version ; les téléphones la rechargent au
+  lancement et après chaque modification (événement Socket.IO), et retombent sur
+  les sons et cartes intégrés pour tout ce qui n'est pas personnalisé.
+- **Persistance** : c'est la seule donnée conservée sur disque. Sur Fly.io, un
+  volume gratuit la garde entre deux redémarrages (option recommandée). Sur Render
+  en gratuit, le disque est effacé à chaque redémarrage : les fichiers chargés
+  seraient perdus ; l'Admin propose donc aussi un export/import en .zip.
+
+## 8. Plan des étapes
 
 1. ✅ Architecture + modèle d'état (ce document, `shared/`, `server/src/engine/state.ts`)
 2. Moteur + tests Vitest (pouvoirs, hors tour, fenêtre 1,5 s, pénalités, fin de manche, égalités, pioche vide)
@@ -170,5 +193,5 @@ si tu veux en changer un avant l'étape 2.
 5. Client + thème graphique jungle (cartes SVG, singes, dos de carte, jeton Dealer)
 6. Sons et pop-ups
 7. Tchat
-8. PWA
+8. PWA + espace Admin (sons et cartes)
 9. Déploiement (Dockerfile + README pas à pas)

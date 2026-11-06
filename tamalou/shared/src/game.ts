@@ -192,6 +192,8 @@ export type GameFx =
   | { type: 'penalty'; kind: 'wrongTurn'; playerId: PlayerId }
   | { type: 'penalty'; kind: 'wrongDuplicate'; playerIds: PlayerId[] }
   | { type: 'duplicateSuccess'; playerId: PlayerId; card: Card }
+  /** Vrais doublons mais pas les plus rapides : pop-up Gorille "Tu feras mieux la prochaine fois", pour eux seuls. */
+  | { type: 'duplicateTooSlow'; playerIds: PlayerId[]; winnerId: PlayerId }
   | { type: 'draw'; playerId: PlayerId; source: 'deck' | 'discard' }
   | { type: 'discard'; playerId: PlayerId; card: Card }
   | { type: 'swap'; a: { playerId: PlayerId; slot: SlotIndex }; b: { playerId: PlayerId; slot: SlotIndex }; blind: boolean }
@@ -214,3 +216,38 @@ export type ChatMessage =
   | { id: number; at: number; kind: 'user'; playerId: PlayerId; text: string }
   | { id: number; at: number; kind: 'reaction'; playerId: PlayerId; emoji: QuickReaction }
   | { id: number; at: number; kind: 'system'; text: string };
+
+// ---------------------------------------------------------------------------
+// Ressources personnalisables (espace Admin) : sons et images de cartes
+// ---------------------------------------------------------------------------
+// Sans fichier personnalisé, le client utilise les sons et les cartes SVG intégrés.
+
+export const SOUND_NAMES = [
+  'monkey-laugh', // MAUVAIS TOUR, pour le pénalisé
+  'jungle-yell', // MAUVAIS TOUR, pour les autres
+  'fail-jingle', // MAUVAIS DOUBLON
+  'gorilla-slow', // doublon correct mais trop lent
+  'duplicate-win', // doublon réussi
+  'draw',
+  'discard',
+  'swap',
+  'peek',
+  'tamalou',
+  'round-win',
+] as const;
+export type SoundName = (typeof SOUND_NAMES)[number];
+
+/** Nom de fichier d'une face de carte : "hearts-1", "spades-13"… ou "back" pour le dos. */
+export type CardImageKey = `${'hearts' | 'diamonds' | 'clubs' | 'spades'}-${number}` | 'back';
+
+export const SOUND_EXTENSIONS = ['mp3', 'ogg', 'wav', 'm4a'] as const;
+export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'svg'] as const;
+export const MAX_SOUND_BYTES = 3 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+
+/** Réponse de GET /api/assets : ce qui a été personnalisé, avec une version pour casser le cache. */
+export interface AssetManifest {
+  version: number;
+  sounds: Partial<Record<SoundName, string>>;
+  cards: Partial<Record<CardImageKey, string>>;
+}
