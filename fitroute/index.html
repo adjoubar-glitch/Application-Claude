@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f1115">
+<title>FIT ROUTE</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--txt:#14161a;--mut:#6b7280;--line:#e5e7eb;--acc:#e3002b;--ok:#0a8a4a;--waze:#33ccff;--soft:#fff4e5}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#1a1d23;--txt:#f2f3f5;--mut:#9aa1ac;--line:#2a2e36;--soft:#2b2416}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;background:var(--bg);padding:14px 16px 8px;z-index:2;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:20px;letter-spacing:.04em}
+h1 b{color:var(--acc)}
+.sub{color:var(--mut);font-size:13px;margin-top:2px;min-height:18px}
+nav{display:flex;gap:8px;margin-top:10px}
+nav button,.btn{border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:10px;padding:8px 14px;font:inherit;cursor:pointer}
+nav button.on,.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+main{padding:8px 16px 40px;max-width:640px;margin:0 auto}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:20px 0 8px}
+.row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.row.hero{border:2px solid var(--acc)}
+.info{flex:1;min-width:0}
+.name{font-weight:600}
+.tag{display:inline-block;font-size:11px;font-weight:500;color:var(--mut);border:1px solid var(--line);border-radius:6px;padding:0 5px;margin-left:4px;vertical-align:1px}
+.addr{color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.time{text-align:right;font-weight:700;font-size:18px;white-space:nowrap}
+.time small{display:block;font-weight:400;font-size:12px;color:var(--mut)}
+.waze{background:var(--waze);color:#00303f;text-decoration:none;font-weight:700;font-size:13px;padding:8px 10px;border-radius:9px}
+.empty{color:var(--mut);font-size:14px;padding:6px 2px}
+.day{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 0}
+.step{display:flex;gap:10px;padding:6px 12px;font-size:14px;color:var(--mut)}
+.step b{min-width:46px;font-variant-numeric:tabular-nums}
+.step.next{background:var(--soft);color:var(--txt);font-weight:600}
+.step.done{opacity:.55}
+.mode{display:flex;gap:6px;margin-top:12px}
+.mode label{flex:1;text-align:center;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--card);cursor:pointer}
+.mode input{display:none}
+.mode label:has(input:checked){background:var(--txt);color:var(--bg)}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.field span{font-size:13px;color:var(--mut)}
+input[type=text],input[type=password],input[type=number],textarea,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--txt);font:inherit}
+.inline{display:flex;gap:8px}
+.inline input{flex:1}
+.del{border:none;background:none;color:var(--mut);font-size:18px;cursor:pointer;padding:4px 8px}
+.add{border:none;background:var(--ok);color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:13px}
+.err{background:#fde8ea;color:#8a0015;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:14px}
+@media (prefers-color-scheme:dark){.err{background:#3a1218;color:#ffb3bd}}
+#refresh{width:100%;margin-top:18px;padding:12px}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--mut);border-top-color:transparent;border-radius:50%;animation:s 1s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>FIT <b>ROUTE</b></h1>
+  <div class="sub" id="status"></div>
+  <nav><button data-tab="home" class="on">Trajets</button><button data-tab="cfg">Réglages</button></nav>
+</header>
+<main>
+<section id="home">
+  <div class="mode">
+    <label><input type="radio" name="mode" value="DRIVE">🚗 Voiture</label>
+    <label><input type="radio" name="mode" value="TRANSIT">🚇 Transports</label>
+    <label><input type="radio" name="mode" value="BICYCLE">🚲 Vélo</label>
+  </div>
+  <div id="error"></div>
+  <h2 id="dayTitle">Aujourd'hui</h2><div id="today"></div>
+  <h2>Fitness Park le plus rapide</h2><div id="nearest"></div>
+  <h2>Mes Fitness Park</h2><div id="favGyms"></div>
+  <h2>Mes adresses</h2><div id="favPlaces"></div>
+  <h2>Drives</h2><div id="favDrives"></div>
+  <button class="btn pri" id="refresh">Actualiser</button>
+</section>
+
+<section id="cfg" hidden>
+  <h2>Clé Google Maps</h2>
+  <div class="field"><span>Clé API (Places API (New) + Routes API activées)</span>
+    <div class="inline"><input type="password" id="key" placeholder="AIza…"><button class="btn" id="saveKey">OK</button></div></div>
+  <div class="field"><span>Rayon de recherche des Fitness Park (km)</span><input type="number" id="radius" min="1" max="50"></div>
+  <div class="field"><span>Temps parking → début de séance (min)</span><input type="number" id="parkMin" min="0" max="30"></div>
+
+  <h2>Ajouter un lieu</h2>
+  <div class="field"><select id="addType">
+    <option value="gym">Fitness Park</option>
+    <option value="place">Adresse favorite</option>
+    <option value="grocery_drive">Drive</option>
+  </select></div>
+  <div class="field"><input type="text" id="addLabel" placeholder="Nom affiché (optionnel, ex : Maman)"></div>
+  <div class="inline"><input type="text" id="addQ" placeholder="Nom ou adresse"><button class="btn" id="addSearch">Chercher</button></div>
+  <div id="addResults"></div>
+
+  <h2>Fitness Park</h2><div id="lstGyms"></div>
+  <h2>Adresses</h2><div id="lstPlaces"></div>
+  <h2>Drives</h2><div id="lstDrives"></div>
+
+  <h2>Sauvegarde</h2>
+  <div class="inline"><button class="btn" id="exp">Exporter</button><button class="btn" id="imp">Importer</button><button class="btn" id="reseed">Recharger config</button></div>
+  <textarea id="io" rows="4" placeholder="JSON de config (format FIT ROUTE ou fitroute-config.json)" style="margin-top:8px"></textarea>
+</section>
+</main>
+
+<script>
+/* ===== Config d'origine : claude/fitroute-config.json v1.0 ===== */
+const SEED={
+  version:"1.0",
+  rules:{session_duration_min:75,park_to_start_min:10},
+  places:[
+    {id:"home_partner",type:"home",label:"Chez ma nana",address:"5 square Henri Duparc, 91160 Longjumeau"},
+    {id:"home_own",type:"home",label:"Mon appart",address:"17 square des Griffons, 94000 Créteil"},
+    {id:"work_lcl",type:"work",label:"LCL",address:"Avenue de Paris, 94800 Villejuif"},
+    {id:"mother",type:"family",label:"Maman",address:"9 rue Roland Oudot, 94000 Créteil"},
+    {id:"fp_thiais",type:"gym",label:"Fitness Park Thiais Belle Épine",address:"Centre Commercial Belle Épine, rue du Luxembourg, 94320 Thiais",role:"Après boulot"},
+    {id:"fp_villejuif",type:"gym",label:"Fitness Park Villejuif",address:"67 avenue de Stalingrad, 94800 Villejuif",role:"Avant boulot"},
+    {id:"fp_creteil_soleil",type:"gym",label:"Fitness Park Créteil Soleil",address:"Centre Commercial Créteil Soleil, avenue de la France Libre, 94000 Créteil",role:"Midi télétravail"},
+    {id:"fp_creteil_pompadour",type:"gym",label:"Fitness Park Créteil Pompadour",address:"83 avenue du Maréchal Foch, 94000 Créteil",role:"Secours télétravail"},
+    {id:"fp_morangis",type:"gym",label:"Fitness Park Morangis",address:"11 avenue Ferdinand de Lesseps, 91420 Morangis",role:"Week-end"},
+    {id:"drive_orly",type:"grocery_drive",label:"Leclerc Drive Orly",address:"8 place du Fer à Cheval, 94310 Orly",role:"Préféré"},
+    {id:"drive_vitry",type:"grocery_drive",label:"Leclerc Drive Vitry-sur-Seine",address:"13-15 avenue du Président Salvador Allende, 94400 Vitry-sur-Seine",role:"Secours"},
+    {id:"drive_morangis",type:"grocery_drive",label:"Leclerc Drive Morangis",address:"69/71 avenue Charles de Gaulle, 91420 Morangis",lat:48.705623,lng:2.343041,excluded:true}
+  ],
+  day_templates:{
+    onsite:{title:"Journée sur site",steps:[
+      {time:"08:05",action:"depart",from:"home_partner"},
+      {time:"08:50",action:"park",at:"work_lcl"},
+      {time:"18:00",action:"depart",from:"work_lcl",to:"fp_thiais"},
+      {time:"18:20",action:"session",at:"fp_thiais",duration:75},
+      {time:"20:10",action:"arrive",at:"home_partner"}]},
+    telework_sport_mother:{title:"Télétravail + sport + maman",steps:[
+      {time:"08:00",action:"depart",from:"home_partner",to:"home_own"},
+      {time:"09:00",action:"work_start"},
+      {time:"11:50",action:"depart",to:"fp_creteil_soleil"},
+      {time:"12:10",action:"session",at:"fp_creteil_soleil",duration:75},
+      {time:"13:40",action:"shower_lunch",at:"home_own"},
+      {time:"14:10",action:"work_resume"},
+      {time:"18:15",action:"visit",at:"mother",until:"19:45"},
+      {time:"20:15",action:"arrive",at:"home_partner"}]},
+    telework_mother_groceries:{title:"Télétravail + maman + courses",steps:[
+      {time:"08:00",action:"depart",from:"home_partner",to:"home_own"},
+      {time:"09:00",action:"work_start"},
+      {time:"12:15",action:"visit",at:"mother",until:"13:30"},
+      {time:"18:00",action:"depart",from:"home_own",to:"drive_orly"},
+      {time:"18:30",action:"pickup",at:"drive_orly",slot:"18:30-18:45"},
+      {time:"19:05",action:"arrive",at:"home_partner"}]},
+    weekend_optional:{title:"Week-end (séance optionnelle)",steps:[
+      {time:"Matin",action:"session",at:"fp_morangis",duration:75}]}
+  },
+  week:{monday:"onsite",tuesday:"onsite",wednesday:"telework_sport_mother",thursday:"onsite",friday:"telework_mother_groceries",saturday:"weekend_optional",sunday:null}
+};
+
+/* ===== État ===== */
+const LS='fitroute.v1';
+const DEF={key:'',radius:15,mode:'DRIVE',parkMin:10,items:[],seeded:null,gymCache:null,last:null};
+let cfg=load(),busy=false;
+function load(){try{return Object.assign({},DEF,JSON.parse(localStorage.getItem(LS)||'{}'))}catch(e){return {...DEF}}}
+function save(){try{localStorage.setItem(LS,JSON.stringify(cfg))}catch(e){}}
+function seed(force){
+  if(cfg.seeded===SEED.version&&!force)return;
+  const ids=new Set(cfg.items.map(i=>i.id));
+  SEED.places.filter(p=>!p.excluded&&!ids.has(p.id)).forEach(p=>cfg.items.push({
+    id:p.id,type:p.type,label:p.label,addr:p.address,role:p.role||'',lat:p.lat??null,lng:p.lng??null}));
+  cfg.parkMin=SEED.rules.park_to_start_min;
+  cfg.seeded=SEED.version;cfg.last=null;save();
+}
+const kind=t=>t==='gym'?'gym':t==='grocery_drive'?'drive':'place';
+const byKind=k=>cfg.items.filter(i=>kind(i.type)===k);
+const byId=id=>cfg.items.find(i=>i.id===id);
+
+/* ===== Utilitaires ===== */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const status=t=>$('status').innerHTML=t;
+function haversine(a,b){const R=6371e3,r=Math.PI/180,dl=(b.lat-a.lat)*r,dg=(b.lng-a.lng)*r;const x=Math.sin(dl/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+const fmt=s=>{const m=Math.round(s/60);return m<60?m+' min':Math.floor(m/60)+' h '+String(m%60).padStart(2,'0')};
+const km=m=>m==null?'':(m<1000?m+' m':(m/1000).toFixed(1).replace('.',',')+' km');
+const hhmm=d=>d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+
+/* ===== Google APIs ===== */
+async function searchText(q,center,max=10){
+  const body={textQuery:q,maxResultCount:max,languageCode:'fr',regionCode:'FR'};
+  if(center)body.locationBias={circle:{center:{latitude:center.lat,longitude:center.lng},radius:Math.min(cfg.radius*1000,50000)}};
+  const r=await fetch('https://places.googleapis.com/v1/places:searchText',{method:'POST',
+    headers:{'Content-Type':'application/json','X-Goog-Api-Key':cfg.key,'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.location'},
+    body:JSON.stringify(body)});
+  const j=await r.json();
+  if(!r.ok)throw new Error('Places : '+(j.error?.message||r.status));
+  return (j.places||[]).map(p=>({id:p.id,name:p.displayName?.text||'',addr:p.formattedAddress||'',lat:p.location.latitude,lng:p.location.longitude}));
+}
+async function matrix(origin,dests,mode){
+  if(!dests.length)return [];
+  const wp=d=>({waypoint:{location:{latLng:{latitude:d.lat,longitude:d.lng}}}});
+  const body={origins:[wp(origin)],destinations:dests.map(wp),travelMode:mode,languageCode:'fr'};
+  if(mode==='DRIVE')body.routingPreference='TRAFFIC_AWARE';
+  const r=await fetch('https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix',{method:'POST',
+    headers:{'Content-Type':'application/json','X-Goog-Api-Key':cfg.key,'X-Goog-FieldMask':'originIndex,destinationIndex,duration,distanceMeters,condition'},
+    body:JSON.stringify(body)});
+  const j=await r.json();
+  if(!r.ok)throw new Error('Routes : '+((Array.isArray(j)?j[0]?.error?.message:j.error?.message)||r.status));
+  const out=dests.map(()=>null);
+  for(const e of j){if(e.condition==='ROUTE_EXISTS')out[e.destinationIndex||0]={sec:parseInt(e.duration)||0,m:e.distanceMeters||0}}
+  return out;
+}
+/* Géocode les lieux de la config sans coordonnées (une seule fois) */
+async function geocodeMissing(){
+  const todo=cfg.items.filter(i=>i.lat==null);
+  for(const it of todo){
+    status('<span class="spin"></span>Géocodage : '+esc(it.label)+'…');
+    try{const [p]=await searchText(it.addr,null,1);if(p){it.lat=p.lat;it.lng=p.lng;save()}}catch(e){throw e}
+  }
+}
+
+/* ===== Position ===== */
+function getPos(){
+  const u=new URLSearchParams(location.search),la=u.get('lat'),lo=u.get('lng')||u.get('lon');
+  if(la&&lo&&!isNaN(+la)&&!isNaN(+lo))return Promise.resolve({lat:+la,lng:+lo,src:'MacroDroid'});
+  return new Promise((res,rej)=>{
+    if(!navigator.geolocation)return rej(new Error('Géolocalisation indisponible sur ce navigateur'));
+    navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude,src:'GPS'}),
+      ()=>rej(new Error('Position refusée ou introuvable : autorise la localisation pour ce site dans Chrome')),
+      {enableHighAccuracy:true,timeout:15000,maximumAge:60000});
+  });
+}
+
+/* ===== Programme du jour ===== */
+const ACT={depart:'Départ',park:'Garé',session:'Séance',shower_lunch:'Douche + déjeuner',work_start:'Début télétravail',
+  work_resume:'Reprise télétravail',visit:'Visite',pickup:'Retrait drive',arrive:'Arrivée'};
+function stepText(s){
+  const n=id=>esc(byId(id)?.label||id);
+  let t=ACT[s.action]||s.action;
+  if(s.from&&s.to)t+=' '+n(s.from)+' → '+n(s.to);
+  else if(s.to)t+=' → '+n(s.to);
+  else if(s.from)t+=' '+n(s.from);
+  if(s.at)t+=' · '+n(s.at);
+  if(s.duration)t+=' ('+fmt(s.duration*60)+')';
+  if(s.until)t+=' jusqu\'à '+s.until.replace(':','h');
+  if(s.slot)t+=' · créneau '+s.slot.replace(/:/g,'h');
+  return t;
+}
+function renderToday(){
+  const day=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date().getDay()];
+  const tpl=SEED.day_templates[SEED.week[day]];
+  if(!tpl){$('dayTitle').textContent="Aujourd'hui";$('today').innerHTML='<div class="empty">Repos 😌</div>';return}
+  $('dayTitle').textContent="Aujourd'hui · "+tpl.title;
+  const now=hhmm(new Date());
+  let nextDone=false;
+  $('today').innerHTML='<div class="day">'+tpl.steps.map(s=>{
+    const timed=/^\d\d:\d\d$/.test(s.time);
+    let cls='';
+    if(timed&&s.time<now)cls='done';
+    else if(!nextDone){cls='next';nextDone=true}
+    return `<div class="step ${cls}"><b>${esc(timed?s.time.replace(':','h'):s.time)}</b><span>${stepText(s)}</span></div>`;
+  }).join('')+'</div>';
+}
+
+/* ===== Rendu trajets ===== */
+function row(d,res,hero){
+  let sub=res?km(res.m):'indispo.';
+  if(res&&kind(d.type||'gym')==='gym'){const t=new Date(Date.now()+(res.sec+cfg.parkMin*60)*1000);sub='séance à '+hhmm(t).replace(':','h')}
+  const tag=d.role?`<span class="tag">${esc(d.role)}</span>`:'';
+  return `<div class="row${hero?' hero':''}"><div class="info"><div class="name">${esc(d.label||d.name)}${tag}</div><div class="addr">${esc(d.addr)}</div></div>
+  <div class="time">${res?fmt(res.sec):'—'}<small>${sub}</small></div>
+  <a class="waze" href="https://waze.com/ul?ll=${d.lat},${d.lng}&navigate=yes">Waze</a></div>`;
+}
+function renderResults(R){
+  const by=(a,b)=>(a.r?.sec??1e9)-(b.r?.sec??1e9);
+  const list=(arr,msg)=>arr.length?arr.sort(by).map(x=>row(x.d,x.r)).join(''):`<div class="empty">${msg}</div>`;
+  $('nearest').innerHTML=R.nearest?row(R.nearest.d,R.nearest.r,true):'<div class="empty">Aucun Fitness Park trouvé dans le rayon.</div>';
+  $('favGyms').innerHTML=list(R.gym,'Ajoute tes salles dans Réglages.');
+  $('favPlaces').innerHTML=list(R.place,'Ajoute tes adresses dans Réglages.');
+  $('favDrives').innerHTML=list(R.drive,'Ajoute un drive dans Réglages.');
+}
+
+/* ===== Calcul principal ===== */
+async function refresh(force){
+  renderToday();
+  if(busy)return;
+  $('error').innerHTML='';
+  if(!cfg.key){status('');$('error').innerHTML='<div class="err">Renseigne ta clé Google Maps dans Réglages.</div>';return}
+  busy=true;status('<span class="spin"></span>Localisation…');
+  try{
+    await geocodeMissing();
+    const pos=await getPos();
+    const L=cfg.last;
+    if(!force&&L&&L.mode===cfg.mode&&Date.now()-L.t<180000&&haversine(L.pos,pos)<300){renderResults(L.R);status('Mis à jour à '+hhmm(new Date(L.t))+' · cache');return}
+
+    status('<span class="spin"></span>Recherche des Fitness Park…');
+    let near;const C=cfg.gymCache;
+    if(C&&haversine(C.pos,pos)<1000&&Date.now()-C.t<7*864e5)near=C.list;
+    else{near=(await searchText('Fitness Park',pos,10)).filter(p=>/fitness\s*park/i.test(p.name));cfg.gymCache={pos,t:Date.now(),list:near};save()}
+    const cand=near.map(p=>({p,d:haversine(pos,p)})).sort((a,b)=>a.d-b.d).slice(0,5).map(x=>({...x.p,type:'gym'}));
+
+    status('<span class="spin"></span>Calcul des temps…');
+    const favs=cfg.items.filter(i=>i.lat!=null);
+    const res=await matrix(pos,[...cand,...favs],cfg.mode);
+    const c=cand.map((d,i)=>({d,r:res[i]})).filter(x=>x.r).sort((a,b)=>a.r.sec-b.r.sec);
+    if(c[0]){const f=favs.find(f=>kind(f.type)==='gym'&&haversine(f,c[0].d)<150);if(f)c[0].d={...c[0].d,label:f.label,role:f.role}}
+    const R={nearest:c[0]||null,gym:[],place:[],drive:[]};
+    favs.forEach((d,i)=>R[kind(d.type)].push({d,r:res[cand.length+i]}));
+    renderResults(R);
+    cfg.last={t:Date.now(),pos,mode:cfg.mode,R};save();
+    status('Mis à jour à '+hhmm(new Date())+' · '+pos.src);
+  }catch(e){status('');$('error').innerHTML='<div class="err">'+esc(e.message)+'</div>'}
+  finally{busy=false}
+}
+
+/* ===== Réglages ===== */
+function renderLists(){
+  const li=k=>byKind(k).map(d=>`<div class="row"><div class="info"><div class="name">${esc(d.label)}${d.role?`<span class="tag">${esc(d.role)}</span>`:''}</div><div class="addr">${esc(d.addr)}</div></div><button class="del" data-id="${esc(d.id)}" title="Supprimer">✕</button></div>`).join('')||'<div class="empty">Aucun.</div>';
+  $('lstGyms').innerHTML=li('gym');$('lstPlaces').innerHTML=li('place');$('lstDrives').innerHTML=li('drive');
+}
+async function doSearch(){
+  const box=$('addResults'),q=$('addQ').value;
+  if(!cfg.key){box.innerHTML='<div class="err">Clé API manquante.</div>';return}
+  if(!q.trim())return;
+  box.innerHTML='<div class="empty"><span class="spin"></span>Recherche…</div>';
+  try{
+    const list=await searchText(q,cfg.last?.pos||null,5);
+    box.innerHTML=list.length?list.map((p,i)=>`<div class="row"><div class="info"><div class="name">${esc(p.name)}</div><div class="addr">${esc(p.addr)}</div></div><button class="add" data-i="${i}">Ajouter</button></div>`).join(''):'<div class="empty">Aucun résultat.</div>';
+    box.querySelectorAll('.add').forEach(b=>b.onclick=()=>{
+      const p=list[+b.dataset.i],type=$('addType').value;
+      cfg.items.push({id:p.id,type,label:$('addLabel').value.trim()||p.name,addr:p.addr,role:'',lat:p.lat,lng:p.lng});
+      cfg.last=null;save();box.innerHTML='';$('addQ').value='';$('addLabel').value='';renderLists();
+    });
+  }catch(e){box.innerHTML='<div class="err">'+esc(e.message)+'</div>'}
+}
+
+/* ===== Événements ===== */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+  $('home').hidden=b.dataset.tab!=='home';$('cfg').hidden=b.dataset.tab!=='cfg';
+  if(b.dataset.tab==='home')refresh();
+});
+document.querySelectorAll('input[name=mode]').forEach(r=>{r.checked=r.value===cfg.mode;r.onchange=()=>{cfg.mode=r.value;save();refresh(true)}});
+$('key').value=cfg.key;$('radius').value=cfg.radius;$('parkMin').value=cfg.parkMin;
+$('saveKey').onclick=()=>{cfg.key=$('key').value.trim();save();status('Clé enregistrée')};
+$('radius').onchange=()=>{cfg.radius=Math.max(1,Math.min(50,+$('radius').value||15));cfg.gymCache=null;cfg.last=null;save()};
+$('parkMin').onchange=()=>{cfg.parkMin=Math.max(0,Math.min(30,+$('parkMin').value||0));cfg.last=null;save()};
+$('addSearch').onclick=doSearch;
+document.addEventListener('click',e=>{const b=e.target.closest('.del');if(!b)return;cfg.items=cfg.items.filter(i=>i.id!==b.dataset.id);cfg.last=null;save();renderLists()});
+$('exp').onclick=()=>{$('io').value=JSON.stringify({radius:cfg.radius,mode:cfg.mode,parkMin:cfg.parkMin,items:cfg.items})};
+$('imp').onclick=()=>{try{
+  const j=JSON.parse($('io').value);
+  if(Array.isArray(j.places)){ // format fitroute-config.json
+    const ids=new Set(cfg.items.map(i=>i.id));
+    j.places.filter(p=>!p.excluded&&!ids.has(p.id)).forEach(p=>cfg.items.push({id:p.id,type:p.type,label:p.label,addr:p.address,role:p.role||'',lat:p.lat??null,lng:p.lng??null}));
+    if(j.rules?.park_to_start_min!=null)cfg.parkMin=j.rules.park_to_start_min;
+  }else{['radius','mode','parkMin','items'].forEach(k=>{if(j[k]!==undefined)cfg[k]=j[k]})}
+  cfg.last=null;save();renderLists();$('radius').value=cfg.radius;$('parkMin').value=cfg.parkMin;status('Config importée');
+}catch(e){status('JSON invalide')}};
+$('reseed').onclick=()=>{seed(true);renderLists();status('Lieux de la config rechargés')};
+$('refresh').onclick=()=>refresh(true);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
+
+seed();renderLists();refresh();
+</script>
+</body>
+</html>

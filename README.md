@@ -24,3 +24,13 @@ Doseur de recettes, tâches d'équipe, stock et matériel de l'atelier, installa
 
 - Chef : `…/Application-Claude/?k=<clé>`. Ne le partage pas.
 - Invités : créés depuis l'application (Accueil, Inviter), sous la forme `…/Application-Claude/?i=<jeton>`. Pour retirer un accès, bouton Retirer, ou colonne Actif à FALSE dans `App_Invites`.
+
+---
+
+# FIT ROUTE
+
+Fitness Park le plus proche, temps de trajet vers les salles, adresses et drives favoris, programme du jour. Dossier `fitroute/`, indépendant de BakeScale.
+
+- **Application** : https://adjoubar-glitch.github.io/Application-Claude/fitroute/
+- **Config** : clé Google Maps (Places API (New) + Routes API) à saisir dans Réglages ; lieux pré-chargés depuis `fitroute-config.json` v1.0.
+- **Lancement au déverrouillage** : MacroDroid, déclencheur « Appareil déverrouillé », action « Ouvrir un site web » vers l'adresse ci-dessus.
