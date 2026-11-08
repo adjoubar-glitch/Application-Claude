@@ -441,7 +441,7 @@ function render() {
   $('nav').hidden = tabs.length < 2;
   $('navin').innerHTML = tabs.map(([k, l, ic]) => `<button data-act="nav" data-v="${k}" ${S.view === k ? 'aria-current="page"' : ''}><span class="w">${icon(ic, 24)}${k === 'stock' && low ? `<sup>${low}</sup>` : ''}</span>${l}</button>`).join('');
   const v = { home: viewHome, dose: S.tab ? viewRecipe : viewRecipes, tasks: S.draft ? viewDraft : S.finish ? viewFinish : viewTasks, stock: viewStock, mat: viewMat }[S.view] || viewTasks;
-  $('main').innerHTML = (S.busy ? `<div class="panel warn small">${esc(S.busy)}</div>` : '') + callBanner() + errBanner() + v();
+  $('main').innerHTML = installBanner() + (S.busy ? `<div class="panel warn small">${esc(S.busy)}</div>` : '') + callBanner() + errBanner() + v();
 }
 function callBanner() {
   if (!S.owner) return '';
@@ -481,7 +481,24 @@ function viewHome() {
     <div class="row between"><span><span class="small muted">Fournisseurs FR / UE (HT)</span><br><span class="big">${eur(S.cmp.totalFR)}</span></span><span style="text-align:right"><span class="small muted">Estimation Alibaba livré</span><br><span class="big" style="color:var(--ok)">${eur(S.cmp.totalAli)}</span></span></div>
     ${save != null ? `<div class="panel ok small" style="padding:10px 14px;border-radius:12px">Écart estimé : ${eur(save)} en faveur d'${save >= 0 ? 'Alibaba' : 'FR / UE'}, avant garantie et SAV.</div>` : ''}</section>` : ''}`;
 }
-const inviteMessage = () => S.inv.msg || `Bonjour${S.inv.name ? ' ' + S.inv.name : ''}, voici ton accès à BakeScale pour préparer nos recettes : ${S.inv.url}`;
+const inviteMessage = () => S.inv.msg || `Bonjour${S.inv.name ? ' ' + S.inv.name : ''}, voici ton accès à BakeScale pour préparer nos recettes : ${S.inv.url} . Ouvre ce lien dans Chrome (Android) ou Safari (iPhone), puis touche « Installer » pour avoir l'application sur ton écran d'accueil.`;
+/* ---------- Installation sur l'écran d'accueil ---------- */
+const UA = navigator.userAgent || '';
+const IS_IOS = /iPhone|iPad|iPod/i.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const IN_APP = /FBAN|FBAV|Instagram|WhatsApp|Line\/|GSA\/|Snapchat|; wv\)/i.test(UA);
+const installed = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } };
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (S.me) render(); });
+window.addEventListener('appinstalled', () => { installEvt = null; store.set('installHidden', true); render(); });
+function installBanner() {
+  if (installed() || store.get('installHidden', false)) return '';
+  let how;
+  if (IN_APP) how = `<span>Ce lien s'est ouvert dans ${/WhatsApp/i.test(UA) ? 'WhatsApp' : 'une autre application'}. Ouvre-le dans ${IS_IOS ? 'Safari' : 'Chrome'} pour pouvoir installer BakeScale : menu ⋮ ou ⋯, puis « Ouvrir dans ${IS_IOS ? 'Safari' : 'Chrome'} ».</span><button class="btn" data-act="inst-copy">Copier le lien</button>`;
+  else if (installEvt) how = `<span>Ajoute BakeScale à ton écran d'accueil : elle s'ouvrira en plein écran, comme une application.</span><button class="btn primary" data-act="inst-go">Installer l'application</button>`;
+  else if (IS_IOS) how = `<span>Dans Safari, touche le bouton <b>Partager</b> (le carré avec une flèche vers le haut), puis <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</span>`;
+  else how = `<span>Dans Chrome, touche le menu <b>⋮</b> en haut à droite, puis <b>Installer l'application</b> ou <b>Ajouter à l'écran d'accueil</b>.</span>`;
+  return `<section class="panel gold small" style="margin-top:12px"><b style="font-size:1.05rem;color:#FFD9A8">Installer BakeScale sur ce téléphone</b>${how}<button class="btn link" data-act="inst-hide" style="justify-self:start">Plus tard</button></section>`;
+}
 const waLink = () => { let d = S.inv.phone.replace(/\D/g, ''); if (d.startsWith('00')) d = d.slice(2); else if (d.startsWith('0')) d = '33' + d.slice(1); return 'https://wa.me/' + d + '?text=' + encodeURIComponent(inviteMessage()); };
 const mailLink = () => 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(S.inv.mail) + '&su=' + encodeURIComponent('Ton accès à BakeScale') + '&body=' + encodeURIComponent(inviteMessage());
 const inviteNote = () => `<div class="panel warn small" style="border-radius:16px;padding:14px">
@@ -750,6 +767,9 @@ const ACT = {
   'acc-send'(d) { const m = S.people.find(x => x.id === d.id); S.invite = true; S.inv = { name: m.name, phone: m.phone, mail: m.mail, msg: '', url: m.url, tabs: m.tabs || [] }; render(); },
   async 'acc-restore'(d) { try { await run('api_restore', d.id); await refreshBoard(); } catch (e) { S.busy = sheetErrorText(e); render(); } },
   async 'acc-remove'(d, el) { if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = 'Confirmer la suppression'; return; } try { await run('api_remove', d.id); await refreshBoard(); } catch (e) { S.busy = sheetErrorText(e); render(); } },
+  async 'inst-go'() { if (!installEvt) return; installEvt.prompt(); try { const r = await installEvt.userChoice; if (r && r.outcome === 'accepted') store.set('installHidden', true); } catch (e) {} installEvt = null; render(); },
+  'inst-hide'() { store.set('installHidden', true); render(); },
+  async 'inst-copy'(d, el) { try { await navigator.clipboard.writeText(location.href); el.textContent = 'Lien copié'; } catch (e) { el.textContent = location.href; } },
   'inv-new'() { S.inv = { name: '', phone: '', mail: '', msg: '', url: '', tabs: [] }; render(); },
   'inv-open'(d) { const m = S.people.find(x => x.id === d.id); S.inv = { name: m.name, phone: m.phone, mail: m.mail, msg: '', url: m.url }; render(); },
   async 'inv-revoke'(d, el) { if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = 'Confirmer'; return; } try { await run('api_revoke', d.id); await refreshBoard(); } catch (e) { S.busy = sheetErrorText(e); render(); } },
