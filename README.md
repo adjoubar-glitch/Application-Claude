@@ -24,3 +24,7 @@ Doseur de recettes, tâches d'équipe, stock et matériel de l'atelier, installa
 
 - Chef : `…/Application-Claude/?k=<clé>`. Ne le partage pas.
 - Invités : créés depuis l'application (Accueil, Inviter), sous la forme `…/Application-Claude/?i=<jeton>`. Pour retirer un accès, bouton Retirer, ou colonne Actif à FALSE dans `App_Invites`.
+
+## Tamalou
+
+Le jeu de cartes Tamalou en ligne (dossier [`tamalou/`](tamalou/README.md)) : appli mobile installable, serveur temps réel, bots et espace Admin. Mise en ligne sur Render décrite pas à pas dans [`tamalou/README.md`](tamalou/README.md) (fichier `render.yaml` à la racine).

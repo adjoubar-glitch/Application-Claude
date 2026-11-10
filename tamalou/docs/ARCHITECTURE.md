@@ -238,8 +238,8 @@ Côté code : `shared/src/effects.ts` (`EFFECT_EVENTS`, `DEFAULT_EFFECTS`,
 2. ✅ Moteur + tests Vitest (`server/src/engine/`, `server/test/`)
 3. ✅ Serveur Socket.IO (`server/src/rooms/`, `server/src/socket.ts`)
 4. ✅ Bots IA (`server/src/bots/`, noms dans `server/config/bot-names.json`)
-5. Client + thème graphique jungle (cartes SVG, singes, dos de carte, jeton Dealer)
-6. Sons, pop-ups et les 14 animations jungle
-7. Tchat
-8. PWA + espace Admin (sons, cartes, animations, effets, stockage Drive « Tamaloo »)
-9. Déploiement (Dockerfile + README pas à pas)
+5. ✅ Client + thème graphique jungle (`client/src/`, dessins dans `client/src/art/art.ts`)
+6. ✅ Sons, pop-ups et les 14 animations jungle (`client/src/fx/`, `scripts/gen-sounds.mjs`)
+7. ✅ Tchat
+8. ✅ PWA + espace Admin (`client/src/screens/Admin.tsx`, `server/src/assets/`, `apps-script/`)
+9. ✅ Déploiement (`Dockerfile`, `render.yaml` à la racine du dépôt, `fly.toml`, README pas à pas)

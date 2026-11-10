@@ -1,0 +1,19 @@
+# Déploiement Render (gratuit) de Tamalou : https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: tamalou
+    runtime: docker
+    plan: free
+    dockerfilePath: ./tamalou/Dockerfile
+    dockerContext: ./tamalou
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DRIVE_BRIDGE_URL
+        sync: false
+      - key: DRIVE_BRIDGE_KEY
+        sync: false
+      - key: ADMIN_SECRET
+        generateValue: true
