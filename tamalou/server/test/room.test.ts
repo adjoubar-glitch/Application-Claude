@@ -162,3 +162,29 @@ describe('gestionnaire de salons', () => {
     expect(r.code).toHaveLength(4);
   });
 });
+
+describe('tchat', () => {
+  it('200 caractères maximum, 1 message par seconde, réactions rapides uniquement', () => {
+    const { room, a } = twoPlayers();
+    expect(room.sendChat(a, 'x'.repeat(201)).ok).toBe(false);
+    expect(room.sendChat(a, '   ').ok).toBe(false);
+    expect(room.sendChat(a, 'Salut la jungle').ok).toBe(true);
+    expect(room.sendChat(a, 'Encore').ok).toBe(false);
+    vi.advanceTimersByTime(1000);
+    expect(room.react(a, '🐒').ok).toBe(true);
+    vi.advanceTimersByTime(1000);
+    expect(room.react(a, '💩').ok).toBe(false);
+    expect(room.chat.filter((m) => m.kind !== 'system')).toHaveLength(2);
+  });
+
+  it('les messages arrivent chez tout le monde, les messages système aussi', () => {
+    const { t, room, a, b } = twoPlayers();
+    room.sendChat(a, 'Coucou');
+    expect(t.sent.some((s) => s.to === b && s.event === 'chat')).toBe(true);
+    room.start(a);
+    vi.advanceTimersByTime(5000);
+    const turn = room.engine!.state.round!.turnPlayerId;
+    room.act(turn === a ? b : a, { type: 'drawFromDeck' });
+    expect(room.chat.at(-1)).toMatchObject({ kind: 'system' });
+  });
+});

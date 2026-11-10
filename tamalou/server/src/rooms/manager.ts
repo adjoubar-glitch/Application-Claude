@@ -1,5 +1,6 @@
 // Tous les salons, en mémoire (Map). Pas de base de données en V1.
 
+import { BotHost } from '../bots/host.js';
 import { Room, type RoomTransport } from './room.js';
 
 /** Sans I ni O, pour éviter les confusions avec 1 et 0 quand on dicte le code. */
@@ -8,6 +9,7 @@ const IDLE_MS = 30 * 60_000;
 
 export class RoomManager {
   readonly rooms = new Map<string, Room>();
+  readonly bots = new Map<string, BotHost>();
   private sweeper: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -23,6 +25,7 @@ export class RoomManager {
     while (this.rooms.has(code));
     const room = new Room(code, this.transport, this.random);
     this.rooms.set(code, room);
+    this.bots.set(code, new BotHost(room, this.random));
     this.onCreate?.(room);
     return room;
   }
@@ -37,6 +40,8 @@ export class RoomManager {
     for (const [code, room] of this.rooms) {
       if (room.isIdle() && now - room.lastActivity > IDLE_MS) {
         room.dispose();
+        this.bots.get(code)?.dispose();
+        this.bots.delete(code);
         this.rooms.delete(code);
       }
     }
@@ -51,5 +56,6 @@ export class RoomManager {
     if (this.sweeper) clearInterval(this.sweeper);
     this.sweeper = null;
     for (const room of this.rooms.values()) room.dispose();
+    for (const host of this.bots.values()) host.dispose();
   }
 }

@@ -5,6 +5,10 @@ import type { ClientToServerEvents, PlayerId, ServerToClientEvents, SessionInfo 
 import { RoomManager } from './rooms/manager.js';
 import type { Member, Room, RoomTransport } from './rooms/room.js';
 import { cleanName, parseAction, parseOptions } from './rooms/validate.js';
+import { pickBotName } from './bots/names.js';
+
+const LEVELS = ['easy', 'medium', 'expert'] as const;
+const isLevel = (v: unknown): v is (typeof LEVELS)[number] => LEVELS.includes(v as never);
 
 export type IO = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type S = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -90,6 +94,41 @@ export function registerSocketHandlers(io: IO, rooms: RoomManager): void {
       const c = current();
       unbind();
       c?.room.leave(c.me.id);
+    });
+
+    socket.on('lobby:addBot', (p, ack) => {
+      const reply = safeAck(ack);
+      const c = current();
+      if (!c || c.room.hostId !== c.me.id) return reply({ ok: false, error: "Seul l'hôte ajoute des bots" });
+      const level = isLevel(p?.level) ? p.level : 'medium';
+      const res = c.room.addBot(pickBotName(c.room.members.map((m) => m.name), Math.random), level);
+      reply(res.ok ? { ok: true } : res);
+    });
+
+    socket.on('lobby:removeBot', (p, ack) => {
+      const reply = safeAck(ack);
+      const c = current();
+      const bot = c?.room.member(p?.playerId);
+      if (!c || c.room.hostId !== c.me.id || !bot?.isBot || !c.room.inLobby) return reply({ ok: false, error: 'Impossible de retirer ce bot' });
+      c.room.removeMember(bot.id);
+      reply({ ok: true });
+    });
+
+    socket.on('lobby:setBotLevel', (p, ack) => {
+      const reply = safeAck(ack);
+      const c = current();
+      if (!c || !isLevel(p?.level) || typeof p?.playerId !== 'string') return reply({ ok: false, error: 'Niveau invalide' });
+      reply(c.room.setBotLevel(c.me.id, p.playerId, p.level));
+    });
+
+    socket.on('chat:send', (p, ack) => {
+      const c = current();
+      safeAck(ack)(c ? c.room.sendChat(c.me.id, p?.text) : { ok: false, error: 'Pas de salon' });
+    });
+
+    socket.on('chat:react', (p, ack) => {
+      const c = current();
+      safeAck(ack)(c ? c.room.react(c.me.id, p?.emoji) : { ok: false, error: 'Pas de salon' });
     });
 
     socket.on('lobby:setOptions', (p, ack) => {

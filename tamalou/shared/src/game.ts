@@ -191,11 +191,12 @@ export type PenaltyKind = 'wrongTurn' | 'wrongDuplicate';
 export type GameFx =
   | { type: 'penalty'; kind: 'wrongTurn'; playerId: PlayerId }
   | { type: 'penalty'; kind: 'wrongDuplicate'; playerIds: PlayerId[] }
-  | { type: 'duplicateSuccess'; playerId: PlayerId; card: Card }
+  | { type: 'duplicateSuccess'; playerId: PlayerId; slot: SlotIndex; card: Card }
   /** Vrais doublons mais pas les plus rapides : pop-up Gorille "Tu feras mieux la prochaine fois", pour eux seuls. */
   | { type: 'duplicateTooSlow'; playerIds: PlayerId[]; winnerId: PlayerId }
   | { type: 'draw'; playerId: PlayerId; source: 'deck' | 'discard' }
-  | { type: 'discard'; playerId: PlayerId; card: Card }
+  /** slot présent quand la carte vient de la grille (échange) : tout le monde voit d'où elle part. */
+  | { type: 'discard'; playerId: PlayerId; card: Card; slot?: SlotIndex }
   /** Échange par pouvoir : a = celui qui joue le pouvoir, b = la victime. */
   | { type: 'swap'; power: 'blindSwap' | 'peekAndSwap'; a: { playerId: PlayerId; slot: SlotIndex }; b: { playerId: PlayerId; slot: SlotIndex }; blind: boolean }
   | { type: 'peek'; power: PowerKind; byPlayerId: PlayerId; target: { playerId: PlayerId; slot: SlotIndex } }

@@ -4,7 +4,10 @@
 
 import { randomBytes } from 'node:crypto';
 import {
+  CHAT_MAX_LENGTH,
+  CHAT_MIN_INTERVAL_MS,
   DEFAULT_OPTIONS,
+  QUICK_REACTIONS,
   MAX_PLAYERS,
   MIN_PLAYERS,
   TIMINGS,
@@ -16,6 +19,7 @@ import {
   type GameOptions,
   type LogEntry,
   type PlayerId,
+  type QuickReaction,
   type ServerToClientEvents,
 } from '@tamalou/shared';
 import { TamalouEngine, type ApplyResult } from '../engine/engine.js';
@@ -72,6 +76,9 @@ export class Room {
   lastActivity: number;
   readonly chat: ChatMessage[] = [];
   hooks: RoomHooks = {};
+  /** Écouteurs de tout ce qui est envoyé (les bots lisent leurs effets ici, comme un téléphone). */
+  readonly taps: ((playerId: PlayerId, event: keyof ServerToClientEvents, payload: unknown) => void)[] = [];
+  private lastChat = new Map<PlayerId, number>();
 
   private logs = new Map<PlayerId, LogEntry[]>();
   private seq = 0;
@@ -141,6 +148,15 @@ export class Room {
     return { ok: true, member };
   }
 
+  setBotLevel(by: PlayerId, botId: PlayerId, level: BotLevel): Result {
+    if (by !== this.hostId) return { ok: false, error: "Seul l'hôte gère les bots" };
+    const m = this.member(botId);
+    if (!m?.isBot || !this.inLobby) return { ok: false, error: 'Bot introuvable' };
+    m.botLevel = level;
+    this.broadcast();
+    return { ok: true };
+  }
+
   removeMember(id: PlayerId): void {
     const i = this.members.findIndex((m) => m.id === id);
     if (i < 0) return;
@@ -173,7 +189,7 @@ export class Room {
     }
     this.touch();
     this.sendTo(id);
-    this.transport.deliver(this.code, id, 'chatHistory', this.chat.slice(-50));
+    this.deliver(id, 'chatHistory', this.chat.slice(-50));
     this.broadcast();
   }
 
@@ -314,7 +330,7 @@ export class Room {
         this.logs.set(id, list);
       }
     }
-    for (const fx of out.fx) for (const m of this.members) this.transport.deliver(this.code, m.id, 'fx', fx);
+    for (const fx of out.fx) for (const m of this.members) this.deliver(m.id, 'fx', fx);
     for (const text of out.system) this.system(text, false);
   }
 
@@ -327,7 +343,45 @@ export class Room {
   pushChat(msg: ChatMessage): void {
     this.chat.push(msg);
     if (this.chat.length > CHAT_KEEP) this.chat.splice(0, this.chat.length - CHAT_KEEP);
-    for (const m of this.members) this.transport.deliver(this.code, m.id, 'chat', msg);
+    for (const m of this.members) this.deliver(m.id, 'chat', msg);
+  }
+
+  private deliver<E extends keyof ServerToClientEvents>(id: PlayerId, event: E, ...args: Parameters<ServerToClientEvents[E]>): void {
+    const m = this.member(id);
+    if (m && !m.isBot) this.transport.deliver(this.code, id, event, ...args);
+    for (const tap of this.taps) tap(id, event, args[0]);
+  }
+
+  // -------------------------------------------------------------------------
+  // Tchat : 200 caractères, 1 message par seconde
+  // -------------------------------------------------------------------------
+
+  private chatAllowed(id: PlayerId): Result {
+    const now = Date.now();
+    if (now - (this.lastChat.get(id) ?? 0) < CHAT_MIN_INTERVAL_MS) return { ok: false, error: 'Doucement, petit singe : 1 message par seconde' };
+    this.lastChat.set(id, now);
+    return { ok: true };
+  }
+
+  sendChat(id: PlayerId, raw: unknown): Result {
+    if (!this.member(id)) return { ok: false, error: 'Pas dans ce salon' };
+    if (typeof raw !== 'string') return { ok: false, error: 'Message vide' };
+    const text = raw.replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+    if (!text) return { ok: false, error: 'Message vide' };
+    if (text.length > CHAT_MAX_LENGTH) return { ok: false, error: `${CHAT_MAX_LENGTH} caractères maximum` };
+    const allowed = this.chatAllowed(id);
+    if (!allowed.ok) return allowed;
+    this.pushChat({ id: this.nextSeq(), at: Date.now(), kind: 'user', playerId: id, text });
+    return { ok: true };
+  }
+
+  react(id: PlayerId, emoji: unknown): Result {
+    if (!this.member(id)) return { ok: false, error: 'Pas dans ce salon' };
+    if (!QUICK_REACTIONS.includes(emoji as QuickReaction)) return { ok: false, error: 'Réaction inconnue' };
+    const allowed = this.chatAllowed(id);
+    if (!allowed.ok) return allowed;
+    this.pushChat({ id: this.nextSeq(), at: Date.now(), kind: 'reaction', playerId: id, emoji: emoji as QuickReaction });
+    return { ok: true };
   }
 
   nextSeq(): number {
@@ -339,11 +393,11 @@ export class Room {
   }
 
   sendTo(id: PlayerId): void {
-    this.transport.deliver(this.code, id, 'state', this.viewFor(id));
+    this.deliver(id, 'state', this.viewFor(id));
   }
 
   toast(id: PlayerId, text: string): void {
-    this.transport.deliver(this.code, id, 'toast', { text });
+    this.deliver(id, 'toast', { text });
   }
 
   viewFor(id: PlayerId, now = Date.now()): ClientView {

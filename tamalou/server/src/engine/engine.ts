@@ -246,7 +246,7 @@ export class TamalouEngine {
         const old = this.ownCard(p, action.slot);
         p.slots[action.slot] = step.card;
         r.discard.push(old);
-        this.fx({ type: 'discard', playerId, card: old });
+        this.fx({ type: 'discard', playerId, card: old, slot: action.slot });
         this.log('all', `${p.name} échange une carte et défausse un ${cardLabel(old)}.`);
         this.endTurn(now);
         return;
@@ -424,7 +424,7 @@ export class TamalouEngine {
       p.slots[winner.slot] = null;
       this.trimEmptyPenaltyRows(p);
       r.discard.push(card);
-      this.fx({ type: 'duplicateSuccess', playerId: p.id, card });
+      this.fx({ type: 'duplicateSuccess', playerId: p.id, slot: winner.slot, card });
       this.log('all', `⚡ ${p.name} se débarrasse d'un ${cardLabel(card)} en doublon !`);
       const slow = right.slice(1).map((a) => a.playerId);
       if (slow.length) {
