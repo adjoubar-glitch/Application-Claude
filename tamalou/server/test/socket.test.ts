@@ -3,10 +3,13 @@ import type { AddressInfo } from 'node:net';
 import { io as connect, type Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ClientView, GameFx, ServerToClientEvents, SessionInfo } from '@tamalou/shared';
 import { createApp } from '../src/index.js';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 type C = Socket<ServerToClientEvents, ClientToServerEvents>;
 let url = '';
-const server = createApp();
+const server = createApp({ assetsDir: mkdtempSync(path.join(tmpdir(), 'tamalou-')), drive: null });
 
 beforeAll(async () => {
   await new Promise<void>((r) => server.http.listen(0, r));

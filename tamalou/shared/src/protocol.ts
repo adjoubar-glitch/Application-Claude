@@ -50,4 +50,6 @@ export interface ServerToClientEvents {
   chatHistory: (msgs: ChatMessage[]) => void;
   /** Erreur non bloquante ("Attends la fin de la tentative de doublon"). */
   toast: (p: { text: string }) => void;
+  /** L'Admin a modifié sons, cartes, animations ou effets : recharger /api/assets. */
+  assets: (p: { version: number }) => void;
 }
