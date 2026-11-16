@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiche appel LCL - Demo SVI</title>
+<style>
+  :root{
+    /* palette: LCL navy + warm white card, single accent green for live status */
+    --lcl-navy: #0b2a5e;
+    --lcl-navy-deep: #081f47;
+    --ink: #1c2430;
+    --muted: #6b7686;
+    --line: #e6e9ef;
+    --card-bg: #ffffff;
+    --page-bg: #eef1f6;
+    --pill-bg: #e8eefc;
+    --pill-ink: #0b2a5e;
+    --btn-ghost-bg: #eef1f5;
+    --btn-ghost-ink: #1c2430;
+    --live: #1a9e5c;
+    --font-display: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+    --font-body: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+    /* layout: centered single card, navy header, label/value rows below, two actions at the foot */
+  }
+
+  *{ box-sizing: border-box; }
+
+  html,body{
+    margin:0; padding:0; height:100%;
+    background: var(--page-bg);
+    font-family: var(--font-body);
+    color: var(--ink);
+  }
+
+  body{
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding: 28px 16px;
+  }
+
+  .card{
+    width: 100%;
+    max-width: 420px;
+    background: var(--card-bg);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(8,31,71,0.14);
+  }
+
+  .header{
+    background: linear-gradient(180deg, var(--lcl-navy), var(--lcl-navy-deep));
+    padding: 20px 22px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+
+  .logo-badge{
+    width:44px; height:44px; border-radius:50%;
+    background:#fff;
+    display:flex; align-items:center; justify-content:center;
+    flex:none;
+  }
+  .logo-badge span{
+    font-family: var(--font-display);
+    font-weight:800;
+    font-size:13px;
+    letter-spacing:0.5px;
+    color: var(--lcl-navy);
+  }
+
+  .header-text h1{
+    margin:0;
+    font-family: var(--font-display);
+    font-size:18px;
+    font-weight:700;
+    color:#ffffff;
+    letter-spacing:0.1px;
+  }
+  .header-text p{
+    margin:2px 0 0;
+    font-size:13px;
+    color: rgba(255,255,255,0.72);
+  }
+
+  .status-row{
+    display:flex; align-items:center; gap:8px;
+    padding: 16px 22px 4px;
+    font-size:13px;
+    font-weight:600;
+    color: var(--live);
+  }
+  .status-dot{
+    width:8px; height:8px; border-radius:50%;
+    background: var(--live);
+    box-shadow: 0 0 0 4px rgba(26,158,92,0.15);
+  }
+
+  .rows{
+    padding: 6px 22px 18px;
+  }
+
+  .row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .row:last-child{ border-bottom:none; }
+
+  .row .label{
+    font-size:11.5px;
+    font-weight:700;
+    letter-spacing:0.6px;
+    text-transform:uppercase;
+    color: var(--muted);
+    white-space:nowrap;
+  }
+  .row .value{
+    font-size:15px;
+    font-weight:700;
+    color: var(--ink);
+    text-align:right;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap:anywhere;
+  }
+  .row .value.placeholder{
+    color: var(--muted);
+    font-weight:600;
+  }
+
+  .pill{
+    display:inline-block;
+    padding: 5px 14px;
+    border-radius:999px;
+    background: var(--pill-bg);
+    color: var(--pill-ink);
+    font-size:13.5px;
+    font-weight:700;
+  }
+
+  .actions{
+    display:flex;
+    gap:10px;
+    padding: 4px 22px 20px;
+  }
+
+  button.action{
+    flex:1;
+    border:none;
+    border-radius:10px;
+    padding: 13px 10px;
+    font-family: var(--font-body);
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    transition: filter 0.15s ease;
+  }
+  button.action:hover{ filter: brightness(0.96); }
+  button.action:active{ filter: brightness(0.9); }
+
+  .btn-ghost{ background: var(--btn-ghost-bg); color: var(--btn-ghost-ink); }
+  .btn-primary{ background: var(--lcl-navy); color:#fff; }
+
+  .foot-note{
+    text-align:center;
+    font-size:11.5px;
+    font-style:italic;
+    color: var(--muted);
+    padding: 0 22px 20px;
+  }
+
+  @media (max-width: 420px){
+    body{ padding: 16px 10px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="card" id="card">
+    <div class="header">
+      <div class="logo-badge"><span>LCL</span></div>
+      <div class="header-text">
+        <h1>Fiche appel entrant</h1>
+        <p>Demo SVI &middot; Genesys Cloud</p>
+      </div>
+    </div>
+
+    <div class="status-row">
+      <span class="status-dot"></span>
+      <span id="statusLabel">Appel en cours</span>
+    </div>
+
+    <div class="rows">
+      <div class="row">
+        <span class="label">Num&eacute;ro appelant</span>
+        <span class="value" id="valAni">Non communiqu&eacute;</span>
+      </div>
+      <div class="row">
+        <span class="label">Motif</span>
+        <span class="value"><span class="pill" id="valMotif">&mdash;</span></span>
+      </div>
+      <div class="row">
+        <span class="label">File</span>
+        <span class="value" id="valQueue">&mdash;</span>
+      </div>
+      <div class="row">
+        <span class="label">Heure de r&eacute;ception</span>
+        <span class="value" id="valTime">&mdash;</span>
+      </div>
+      <div class="row">
+        <span class="label">ID conversation</span>
+        <span class="value placeholder" id="valConvId">&mdash;</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="action btn-ghost" id="btnPrint">Imprimer</button>
+      <button class="action btn-primary" id="btnCrm">Ouvrir dans le CRM</button>
+    </div>
+
+    <p class="foot-note">Fiche g&eacute;n&eacute;r&eacute;e automatiquement &agrave; la prise d'appel &middot; usage demo uniquement</p>
+  </div>
+
+<script>
+  // Lit les variables transmises par Genesys Cloud (Script "Web Page" component)
+  // en query string, ex: ?ani=0612345678&motif=Particuliers&queue=LCL_Demo&convid=abc-123&crm=https://...
+  function qp(name){
+    const v = new URLSearchParams(window.location.search).get(name);
+    return (v && v.trim()) ? v.trim() : null;
+  }
+
+  function setText(id, value, placeholder){
+    const el = document.getElementById(id);
+    if (value){
+      el.textContent = value;
+      el.classList.remove('placeholder');
+    } else {
+      el.textContent = placeholder;
+      el.classList.add('placeholder');
+    }
+  }
+
+  const ani = qp('ani');
+  const motif = qp('motif');
+  const queue = qp('queue');
+  const convId = qp('convid');
+  const crmUrl = qp('crm');
+
+  setText('valAni', ani, 'Non communiqué');
+  document.getElementById('valMotif').textContent = motif || '—';
+  setText('valQueue', queue, '—');
+  setText('valConvId', convId, '—');
+
+  const now = new Date();
+  document.getElementById('valTime').textContent = now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+
+  document.getElementById('btnPrint').addEventListener('click', function(){
+    try { window.print(); } catch(e) { /* impression indisponible dans ce contexte */ }
+  });
+
+  document.getElementById('btnCrm').addEventListener('click', function(){
+    if (crmUrl){
+      try { window.open(crmUrl, '_blank'); } catch(e) {}
+    }
+  });
+</script>
+
+</body>
+</html>
