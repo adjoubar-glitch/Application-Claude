@@ -47,6 +47,19 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)
 .step b{min-width:46px;font-variant-numeric:tabular-nums}
 .step.next{background:var(--soft);color:var(--txt);font-weight:600}
 .step.done{opacity:.55}
+.chip.plan{border-color:var(--acc)}
+.sess{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.sess.next{border:2px solid var(--acc)}
+.sess.done{opacity:.5}
+.sess .t{min-width:58px;font-weight:700;font-variant-numeric:tabular-nums}
+.sess .t small{display:block;font-weight:400;font-size:11px;color:var(--mut)}
+.ok{border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px;cursor:pointer}
+.sess.done .ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.wk{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}
+.wk td{padding:7px 10px;border-top:1px solid var(--line);vertical-align:top}
+.wk tr:first-child td{border-top:none}
+.wk td:first-child{font-weight:600;white-space:nowrap}
+.wk tr.cur{background:var(--soft)}
 .mode{display:flex;gap:6px;margin-top:12px}
 .mode label{flex:1;font-size:14px;white-space:nowrap;text-align:center;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--card);cursor:pointer}
 .mode input{display:none}
@@ -74,6 +87,13 @@ input[type=text],input[type=password],input[type=number],textarea,select{width:1
 <main>
 <!-- ===== Accueil ===== -->
 <section id="home">
+  <h2 id="planTitle">Programme du jour</h2>
+  <div class="mode" id="dayType">
+    <label><input type="radio" name="dtype" value="onsite">🏢 Sur site</label>
+    <label><input type="radio" name="dtype" value="telework">🏠 Télétravail</label>
+    <label><input type="radio" name="dtype" value="weekend">🌿 Repos / WE</label>
+  </div>
+  <div id="planHome" style="margin-top:10px"></div>
   <h2>Où vas-tu ?</h2>
   <div class="chips" id="destChips"></div>
   <h2>Séance du jour</h2>
@@ -94,6 +114,7 @@ input[type=text],input[type=password],input[type=number],textarea,select{width:1
 <section id="around" hidden>
   <div id="errAround"></div>
   <h2 id="dayTitle">Aujourd'hui</h2><div id="today"></div>
+  <h2>Ma semaine</h2><div id="week"></div>
   <h2>Fitness Park le plus rapide</h2><div id="nearest"></div>
   <h2>Mes Fitness Park</h2><div id="favGyms"></div>
   <h2>Mes adresses</h2><div id="favPlaces"></div>
@@ -132,13 +153,14 @@ input[type=text],input[type=password],input[type=number],textarea,select{width:1
 <script>
 /* ===== Config d'origine : claude/fitroute-config.json v1.0 ===== */
 const SEED={
-  version:"1.0",
-  rules:{session_duration_min:75,park_to_start_min:10},
+  version:"1.1",
+  rules:{session_duration_min:50,park_to_start_min:10},
   places:[
     {id:"home_partner",type:"home",label:"Chez ma nana",address:"5 square Henri Duparc, 91160 Longjumeau"},
     {id:"home_own",type:"home",label:"Mon appart",address:"17 square des Griffons, 94000 Créteil"},
     {id:"work_lcl",type:"work",label:"LCL",address:"Avenue de Paris, 94800 Villejuif"},
     {id:"mother",type:"family",label:"Maman",address:"9 rue Roland Oudot, 94000 Créteil"},
+    {id:"gym_lcl",type:"gym",label:"Salle LCL (-1)",address:"Avenue de Paris, 94800 Villejuif",role:"Sur site · bât. Seine"},
     {id:"fp_thiais",type:"gym",label:"Fitness Park Thiais Belle Épine",address:"Centre Commercial Belle Épine, rue du Luxembourg, 94320 Thiais",role:"Après boulot"},
     {id:"fp_villejuif",type:"gym",label:"Fitness Park Villejuif",address:"67 avenue de Stalingrad, 94800 Villejuif",role:"Avant boulot"},
     {id:"fp_creteil_soleil",type:"gym",label:"Fitness Park Créteil Soleil",address:"Centre Commercial Créteil Soleil, avenue de la France Libre, 94000 Créteil",role:"Midi télétravail"},
@@ -147,42 +169,39 @@ const SEED={
     {id:"drive_orly",type:"grocery_drive",label:"Leclerc Drive Orly",address:"8 place du Fer à Cheval, 94310 Orly",role:"Préféré"},
     {id:"drive_vitry",type:"grocery_drive",label:"Leclerc Drive Vitry-sur-Seine",address:"13-15 avenue du Président Salvador Allende, 94400 Vitry-sur-Seine",role:"Secours"},
     {id:"drive_morangis",type:"grocery_drive",label:"Leclerc Drive Morangis",address:"69/71 avenue Charles de Gaulle, 91420 Morangis",lat:48.705623,lng:2.343041,excluded:true}
-  ],
-  day_templates:{
-    onsite:{title:"Journée sur site",steps:[
-      {time:"08:05",action:"depart",from:"home_partner"},
-      {time:"08:50",action:"park",at:"work_lcl"},
-      {time:"18:00",action:"depart",from:"work_lcl",to:"fp_thiais"},
-      {time:"18:20",action:"session",at:"fp_thiais",duration:75},
-      {time:"20:10",action:"arrive",at:"home_partner"}]},
-    telework_sport_mother:{title:"Télétravail + sport + maman",steps:[
-      {time:"08:00",action:"depart",from:"home_partner",to:"home_own"},
-      {time:"09:00",action:"work_start"},
-      {time:"11:50",action:"depart",to:"fp_creteil_soleil"},
-      {time:"12:10",action:"session",at:"fp_creteil_soleil",duration:75},
-      {time:"13:40",action:"shower_lunch",at:"home_own"},
-      {time:"14:10",action:"work_resume"},
-      {time:"18:15",action:"visit",at:"mother",until:"19:45"},
-      {time:"20:15",action:"arrive",at:"home_partner"}]},
-    telework_mother_groceries:{title:"Télétravail + maman + courses",steps:[
-      {time:"08:00",action:"depart",from:"home_partner",to:"home_own"},
-      {time:"09:00",action:"work_start"},
-      {time:"12:15",action:"visit",at:"mother",until:"13:30"},
-      {time:"18:00",action:"depart",from:"home_own",to:"drive_orly"},
-      {time:"18:30",action:"pickup",at:"drive_orly",slot:"18:30-18:45"},
-      {time:"19:05",action:"arrive",at:"home_partner"}]},
-    weekend_optional:{title:"Week-end (séance optionnelle)",steps:[
-      {time:"Matin",action:"session",at:"fp_morangis",duration:75}]}
-  },
-  week:{monday:"onsite",tuesday:"onsite",wednesday:"telework_sport_mother",thursday:"onsite",friday:"telework_mother_groceries",saturday:"weekend_optional",sunday:null}
+  ]
 };
 const SPORTS=['Pectoraux','Dos','Épaules','Jambes','Bras'];
 const LANDMARKS=['work_lcl','home_partner','mother']; // repères affichés s'ils ne sont pas la destination
 
+/* ===== Programme sportif v5 (planning-semaine.md) =====
+   Séances fixes par jour de la semaine. Le lieu dépend du type de journée :
+   sur site → Salle LCL (-1) · télétravail → Fitness Park Créteil Soleil · week-end → Fitness Park Morangis.
+   Règles : 2 séances par groupe, 4 cordes de 15 min, ni Épaules ni Bras la veille des Pectoraux. */
+const WEEKDAYS=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+const DAY_FR={monday:'Lun',tuesday:'Mar',wednesday:'Mer',thursday:'Jeu',friday:'Ven',saturday:'Sam',sunday:'Dim'};
+const PLAN={
+  monday:   [{slot:'Midi',start:'12:00',dur:50,groups:['Jambes']},
+             {slot:'Soir',start:'17:30',dur:50,groups:['Pectoraux']}],
+  tuesday:  [{slot:'Midi',start:'12:00',dur:60,groups:['Épaules','Bras']},
+             {slot:'Soir',start:'17:30',dur:50,groups:['Dos'],rope:15}],
+  wednesday:[{slot:'Midi',start:'12:00',dur:50,groups:['Jambes']},
+             {slot:'Soir',start:'18:15',end:'19:45',other:'Chez Maman',at:'mother'}],
+  thursday: [{slot:'Midi',start:'12:00',dur:50,groups:['Épaules'],rope:15},
+             {slot:'Soir',start:'17:30',dur:35,groups:['Bras'],rope:15}],
+  friday:   [{slot:'Midi',start:'12:15',end:'13:30',other:'Déjeuner chez Maman',at:'mother'},
+             {slot:'Soir',start:'18:30',end:'18:45',other:'Retrait Leclerc Drive',at:'drive_orly'}],
+  saturday: [{slot:'Matin',start:null,dur:75,groups:['Pectoraux','Dos'],rope:15}],
+  sunday:   []
+};
+const DEFAULT_TYPE={monday:'onsite',tuesday:'onsite',wednesday:'telework',thursday:'onsite',friday:'telework',saturday:'weekend',sunday:'weekend'};
+const VENUE={onsite:'gym_lcl',telework:'fp_creteil_soleil',weekend:'fp_morangis'};
+const SHOWER=10, TRIP_TELEWORK=20; // douche après séance du midi ; trajet + parking depuis l'appart en télétravail
+
 /* ===== État ===== */
 const LS='fitroute.v1';
 const DEF={key:'',radius:15,mode:'DRIVE',parkMin:10,items:[],seeded:null,gymCache:null,last:null,
-  dest:'work_lcl',sportLog:{},sportToday:null,destGyms:{},lastHome:null};
+  dest:'work_lcl',sportLog:{},sportToday:null,destGyms:{},lastHome:null,dayType:null,done:{}};
 let cfg=load(),busy=false,tab='home';
 function load(){try{return Object.assign({},DEF,JSON.parse(localStorage.getItem(LS)||'{}'))}catch(e){return {...DEF}}}
 function save(){try{localStorage.setItem(LS,JSON.stringify(cfg))}catch(e){}}
@@ -273,7 +292,8 @@ function renderChoices(){
   $('sportChips').innerHTML=SPORTS.map(s=>{
     const n=daysAgo(cfg.sportLog[s]);
     const sub=n==null?'jamais':n===0?"aujourd'hui":n===1?'hier':'il y a '+n+' j';
-    return `<button class="chip${s===t?' on':''}" data-sport="${s}">${s}<small>${sub}</small></button>`;
+    const planned=PLAN[wd()].some(x=>(x.groups||[]).includes(s));
+    return `<button class="chip${s===t?' on':''}${planned?' plan':''}" data-sport="${s}">${s}<small>${sub}</small></button>`;
   }).join('');
 }
 function pickSport(s){
@@ -336,32 +356,72 @@ function renderHome(R){
     <div class="time">${r?fmt(r.sec):'—'}<small>${r?km(r.m):'indispo.'}</small></div>${wazeLink(d)}</div>`).join(''):'<div class="empty">—</div>';
 }
 
-/* ===== Autour : programme du jour ===== */
-const ACT={depart:'Départ',park:'Garé',session:'Séance',shower_lunch:'Douche + déjeuner',work_start:'Début télétravail',
-  work_resume:'Reprise télétravail',visit:'Visite',pickup:'Retrait drive',arrive:'Arrivée'};
-function stepText(s){
-  const n=id=>esc(byId(id)?.label||id);
-  let t=ACT[s.action]||s.action;
-  if(s.from&&s.to)t+=' '+n(s.from)+' → '+n(s.to);
-  else if(s.to)t+=' → '+n(s.to);
-  else if(s.from)t+=' '+n(s.from);
-  if(s.at)t+=' · '+n(s.at);
-  if(s.duration)t+=' ('+fmt(s.duration*60)+')';
-  if(s.until)t+=' jusqu\'à '+s.until.replace(':','h');
-  if(s.slot)t+=' · créneau '+s.slot.replace(/:/g,'h');
-  return t;
+/* ===== Programme du jour ===== */
+const wd=(d=new Date())=>WEEKDAYS[d.getDay()];
+const toMin=t=>{const [h,m]=t.split(':').map(Number);return h*60+m};
+const fromMin=m=>String(Math.floor(m/60)).padStart(2,'0')+'h'+String(m%60).padStart(2,'0');
+const nowMin=()=>{const d=new Date();return d.getHours()*60+d.getMinutes()};
+function dayType(){const t=cfg.dayType;return t&&t.date===today()?t.type:DEFAULT_TYPE[wd()]}
+function setDayType(v){cfg.dayType={date:today(),type:v};save();renderPlan()}
+/* Séances du jour avec horaires calculés et lieu */
+function sessions(day=wd(),type=dayType()){
+  return PLAN[day].map((s,i)=>{
+    const o={...s,i};
+    if(s.other){o.a=toMin(s.start);o.b=toMin(s.end);o.place=byId(s.at);return o}
+    o.place=byId(VENUE[type]);
+    if(!s.start){o.a=null;return o}
+    o.a=toMin(s.start)+(type==='telework'&&s.slot==='Midi'?TRIP_TELEWORK-10:0);
+    o.b=o.a+s.dur+(s.rope||0)+(s.slot==='Midi'?SHOWER:0);
+    return o;
+  });
+}
+const doneKey=i=>today()+'#'+i;
+const isDone=i=>!!cfg.done[doneKey(i)];
+function toggleDone(i){
+  const k=doneKey(i),s=PLAN[wd()][i];
+  Object.keys(cfg.done).forEach(x=>{if(!x.startsWith(today()))delete cfg.done[x]});
+  if(cfg.done[k]){for(const [g,p] of Object.entries(cfg.done[k].prev)){if(p)cfg.sportLog[g]=p;else delete cfg.sportLog[g]}delete cfg.done[k]}
+  else{const prev={};(s.groups||[]).forEach(g=>{prev[g]=cfg.sportLog[g]||null;cfg.sportLog[g]=today()});cfg.done[k]={prev}}
+  save();renderPlan();renderChoices();
+}
+function sessHTML(list,withBtn){
+  if(!list.length)return '<div class="empty">Repos 😌</div>';
+  const now=nowMin();let nextSet=false;
+  return list.map(s=>{
+    const done=withBtn&&isDone(s.i);
+    let cls='';if(done)cls='done';else if(withBtn&&!nextSet&&(s.b==null||s.b>now)){cls='next';nextSet=true}
+    const title=s.other?esc(s.other):esc(s.groups.join(' + '))+(s.rope?' + corde '+s.rope+' min':'');
+    let note='';
+    if(s.other)note=fromMin(s.a)+' → '+fromMin(s.b);
+    else{
+      const end=s.a!=null?s.a+s.dur:null;
+      note=s.a!=null?fromMin(s.a)+' → '+fromMin(end)+(s.rope?' · corde → '+fromMin(end+s.rope):'')+(s.slot==='Midi'?' · douche, retour '+fromMin(s.b+5):' · départ direct'):'~'+fmt((s.dur+(s.rope||0))*60);
+      if(dayType()==='telework'&&s.slot==='Midi')note+=' · partir '+fromMin(s.a-TRIP_TELEWORK);
+    }
+    const pl=s.place?`<div class="addr">${esc(s.place.label)}</div>`:'';
+    const nav=s.place&&s.place.lat!=null&&s.place.id!=='gym_lcl'?wazeLink(s.place):'';
+    const btn=withBtn&&!s.other?`<button class="ok" data-done="${s.i}">${done?'Fait ✓':'Fait ?'}</button>`:'';
+    return `<div class="sess ${cls}"><div class="t">${esc(s.slot)}<small>${s.a!=null?fromMin(s.a):''}</small></div>
+      <div class="info"><div class="name">${title}</div><div class="note">${note}</div>${pl}</div>${nav}${btn}</div>`;
+  }).join('');
+}
+const TYPE_FR={onsite:'sur site',telework:'télétravail',weekend:'repos / week-end'};
+function renderPlan(){
+  const day=wd(),t=dayType();
+  document.querySelectorAll('input[name=dtype]').forEach(r=>r.checked=r.value===t);
+  $('planTitle').textContent='Programme du jour · '+DAY_FR[day];
+  $('planHome').innerHTML=sessHTML(sessions(),true);
+  renderToday();
 }
 function renderToday(){
-  const day=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date().getDay()];
-  const tpl=SEED.day_templates[SEED.week[day]];
-  if(!tpl){$('dayTitle').textContent="Aujourd'hui";$('today').innerHTML='<div class="empty">Repos 😌</div>';return}
-  $('dayTitle').textContent="Aujourd'hui · "+tpl.title;
-  const now=hhmm(new Date());let nextDone=false;
-  $('today').innerHTML='<div class="day">'+tpl.steps.map(s=>{
-    const timed=/^\d\d:\d\d$/.test(s.time);let cls='';
-    if(timed&&s.time<now)cls='done';else if(!nextDone){cls='next';nextDone=true}
-    return `<div class="step ${cls}"><b>${esc(timed?s.time.replace(':','h'):s.time)}</b><span>${stepText(s)}</span></div>`;
-  }).join('')+'</div>';
+  const day=wd();
+  $('dayTitle').textContent="Aujourd'hui · "+DAY_FR[day]+' ('+TYPE_FR[dayType()]+')';
+  $('today').innerHTML=sessHTML(sessions(),true);
+  const order=['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  $('week').innerHTML='<table class="wk">'+order.map(d=>{
+    const items=PLAN[d].map(s=>s.other?esc(s.other):`<b>${esc(s.slot)}</b> ${esc(s.groups.join(' + '))}${s.rope?' + corde':''}`);
+    return `<tr class="${d===day?'cur':''}"><td>${DAY_FR[d]}</td><td>${items.join('<br>')||'Repos'}</td></tr>`;
+  }).join('')+'</table>';
 }
 
 /* ===== Autour : calcul ===== */
@@ -406,7 +466,7 @@ async function refreshAround(force){
 async function refresh(force){
   if(tab==='cfg')return;
   const err=tab==='home'?$('errHome'):$('errAround');
-  if(tab==='around')renderToday();
+  renderPlan();
   if(busy)return;
   err.innerHTML='';
   if(!cfg.key){status('');err.innerHTML='<div class="err">Renseigne ta clé Google Maps dans Réglages.</div>';return}
@@ -451,8 +511,10 @@ document.addEventListener('click',e=>{
   const dc=e.target.closest('[data-dest]');if(dc){cfg.dest=dc.dataset.dest;save();renderChoices();refresh();return}
   const sc=e.target.closest('[data-sport]');if(sc){pickSport(sc.dataset.sport);if(cfg.lastHome)renderHome(cfg.lastHome.R);return}
   if(e.target.closest('[data-refresh]')){refresh(true);return}
+  const dn=e.target.closest('[data-done]');if(dn){toggleDone(+dn.dataset.done);return}
   const b=e.target.closest('.del');if(b){cfg.items=cfg.items.filter(i=>i.id!==b.dataset.id);invalidate();save();renderLists()}
 });
+document.querySelectorAll('input[name=dtype]').forEach(r=>r.onchange=()=>setDayType(r.value));
 document.querySelectorAll('input[name=mode]').forEach(r=>{r.checked=r.value===cfg.mode;r.onchange=()=>{cfg.mode=r.value;save();refresh(true)}});
 $('key').value=cfg.key;$('radius').value=cfg.radius;$('parkMin').value=cfg.parkMin;
 $('saveKey').onclick=()=>{cfg.key=$('key').value.trim();save();status('Clé enregistrée')};
@@ -470,10 +532,10 @@ $('imp').onclick=()=>{try{
   invalidate();save();renderLists();$('radius').value=cfg.radius;$('parkMin').value=cfg.parkMin;status('Config importée');
 }catch(e){status('JSON invalide')}};
 $('reseed').onclick=()=>{seed(true);renderLists();status('Lieux de la config rechargés')};
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){renderChoices();refresh()}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){renderChoices();renderPlan();refresh()}});
 
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js',{scope:'./'}).catch(()=>{});
-seed();renderLists();refresh();
+seed();renderLists();renderPlan();refresh();
 </script>
 </body>
 </html>
