@@ -804,7 +804,7 @@ const ACT = {
     const f = d.qty / r.ref, assign = {};
     Object.entries(d.assign).forEach(([i, a]) => { if (a.id) assign[i] = { id: a.id }; else if (T(a.label)) assign[i] = { label: T(a.label) }; });
     const doc = { recipeId: r.id, recipeName: r.name, qty: d.qty, unit: r.unit, date: d.date, createdAt: Date.now(), source: r.source || '', legend: r.legend, layers: r.layers, sketch: r.sketch, steps: r.steps, assign, finished: false,
-      blocks: r.blocks.map(b => ({ name: b.name, items: b.items.map(it => ({ name: it.name, qty: +(it.qty * f).toFixed(3), unit: it.unit, note: it.note })), steps: stepsForBlock(b.name, r.steps) })) };
+      blocks: r.blocks.map(b => ({ name: b.name, items: b.items.map(it => ({ name: it.name, qty: +(it.qty * f).toFixed(3), unit: it.unit, note: it.note })), steps: r.blocks.length === 1 ? r.steps : stepsForBlock(b.name, r.steps) })) };
     try { await run('api_saveProduction', doc); S.draft = null; S.seg = 'prods'; await refreshBoard(); }
     catch (e) { S.busy = 'La production n\'a pas pu être créée. ' + sheetErrorText(e); render(); }
   },
