@@ -718,8 +718,8 @@ const buyTerm = s => encodeURIComponent(T(s.name).replace(/\s*\(.*?\)/g, ''));
 /* Recherche chez un autre fournisseur : le nom générique (1er « autre nom ») plutôt que le nom de marque d'un autre magasin. */
 const termFor = (s, re) => re.test(s.supplier) || !T(s.alias) ? buyTerm(s) : encodeURIComponent(T(s.alias).split(';')[0].replace(/\s*\(.*?\)/g, '').trim());
 const koroTerm = s => termFor(s, /koro/i);
-// Recherche Leclerc nationale ; pour ton Drive, remplacer par l'adresse de recherche de ton magasin (le terme est ajouté à la fin).
-const LECLERC_SEARCH = 'https://www.e.leclerc/recherche?q=';
+// Recherche dans le Drive Leclerc de Morangis (magasin 079101) : prix de ce magasin.
+const LECLERC_SEARCH = 'https://fd7-courses.leclercdrive.fr/magasin-079101-079101-Morangis/recherche.aspx?TexteRecherche=';
 function buyLinks(s) {
   const prices = [['a', s.pa], ['m', s.pm], ['k', s.pk], ['l', s.pl]].filter(([, v]) => v != null);
   const best = prices.length > 1 ? prices.reduce((x, y) => (y[1] < x[1] ? y : x))[0] : null;

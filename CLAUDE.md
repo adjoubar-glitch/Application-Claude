@@ -33,4 +33,4 @@ Les recettes sont les onglets de la Google Sheet (`1ZRWyzaKoa19PQx4Ysn1gs2aUc9KR
 
 ## Inventaire (`App_Stock`) et prix fournisseurs
 
-Colonnes : A nom, B autres noms (`;`), C quantité, D unité, E seuil, F fournisseur, G pas, H grand pas, I ASIN, J prix Amazon, K prix Metro, L prix KORO, M prix Leclerc (TTC, par paquet ; au kilo si les tailles diffèrent, et le dire dans le nom). L'écran Stocks affiche un lien de recherche par fournisseur et met en vert le moins cher des prix connus. Le lien Leclerc utilise `LECLERC_SEARCH` dans `index.html` (recherche nationale par défaut).
+Colonnes : A nom, B autres noms (`;`), C quantité, D unité, E seuil, F fournisseur, G pas, H grand pas, I ASIN, J prix Amazon, K prix Metro, L prix KORO, M prix Leclerc (TTC, par paquet ; au kilo si les tailles diffèrent, et le dire dans le nom). L'écran Stocks affiche un lien de recherche par fournisseur et met en vert le moins cher des prix connus. Le lien Leclerc utilise `LECLERC_SEARCH` dans `index.html` : recherche dans le Drive de Morangis (magasin 079101).
