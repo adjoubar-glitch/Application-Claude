@@ -20,3 +20,13 @@ Ce dépôt contient deux applications web installables (PWA), publiées par GitH
 - Toute modification de `apps-script/Code.gs` demande une action de l'utilisateur sur ordinateur : copier le fichier dans le projet Apps Script, puis Déployer, Gérer les déploiements, crayon, Nouvelle version, Déployer. Le dire clairement à chaque fois.
 - Après une modification de `index.html`, incrémenter `CACHE` dans `sw.js` (`bakescale-vN`) pour que les téléphones reçoivent la mise à jour.
 - Droits : `need_(token, true)` = Chef seulement ; `need_(token, 'dose' | 'stock' | 'mat')` = Chef ou invité ayant cet onglet (colonne I « Onglets » de `App_Invites`).
+
+## Ajouter une recette BakeScale
+
+Les recettes sont les onglets de la Google Sheet (`1ZRWyzaKoa19PQx4Ysn1gs2aUc9KRMtXa87s9thydQiU`) ; l'application les lit à chaque synchronisation, sans changement de code.
+- Nom d'onglet : `R. <Nom>` pour une recette, `Base <Nom>` pour une recette de base.
+- Modèle à recopier : `Base Dacquoise` (lu par `parseRecipe` dans `index.html`). A1 commence par `Fiche Recette :` ; une ligne `Recette de base calibrée pour : …` ; `Lien Tutoriel / Source :` avec l'URL en B ; une ligne `Saisir le nombre de tournées (…) :` avec 1 en D et `tournée(s)` en E ; l'en-tête `Sous-Ensemble / Ingrédient | Qté Recette de base (1 tournée) | Unité | Poids Ajusté… | Timestamp Vidéo (t=XXs) | Procédé / Remarques`.
+- Un titre de bloc est une ligne avec seulement la colonne A remplie. Un ingrédient a une quantité numérique en B (pas de « QS » : le mettre dans le texte d'une étape). Unité `g` pour ce qui se pèse, `pièce(s)` pour les œufs comptés.
+- Puis `Guide de Fabrication & Conseils du Chef` et les étapes `1. Titre : texte`. Le titre d'étape qui reprend un mot du bloc rattache l'étape à ce bloc.
+- La Sheet est en français : les formules séparent les arguments par `;` (ex. `=SUMIF(C9:C16;"g";B9:B16)`).
+- Vérifier ensuite avec le parseur (extraire le bloc `/*PARSER-START*/…/*PARSER-END*/` d'`index.html` dans Node) : aucun `issues`, bon nombre d'ingrédients et d'étapes.
