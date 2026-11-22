@@ -379,7 +379,7 @@ async function refresh() {
         if (r && r.blocks.length && r.ref) recipes.push(r);
       }
       S.recipes = recipes.sort((a, b) => a.name.localeCompare(b.name, 'fr')); S.unparsed = unparsed;
-      S.stock = (d.stock || []).map((c, j) => ({ row: j + 2, name: T(c[0]), alias: T(c[1]), qty: num(c[2]), unit: T(c[3]), min: num(c[4]), supplier: T(c[5]), step: num(c[6]), big: num(c[7]), asin: T(c[8]), pa: num(c[9]), pm: num(c[10]), pk: num(c[11]) })).filter(x => x.name);
+      S.stock = (d.stock || []).map((c, j) => ({ row: j + 2, name: T(c[0]), alias: T(c[1]), qty: num(c[2]), unit: T(c[3]), min: num(c[4]), supplier: T(c[5]), step: num(c[6]), big: num(c[7]), asin: T(c[8]), pa: num(c[9]), pm: num(c[10]), pk: num(c[11]), pl: num(c[12]) })).filter(x => x.name);
       S.mat = (d.mat || []).map((c, j) => ({ row: j + 2, name: T(c[0]), qty: num(c[1]), state: T(c[2]), notes: T(c[3]) })).filter(x => x.name);
       S.cmp = parseCompare(d.compare);
       for (const s of S.stock) if (('stock:' + s.row) in pending) s.qty = pending['stock:' + s.row];
@@ -714,16 +714,20 @@ function viewMine() {
 const isLow = s => s.min != null && s.qty != null && s.qty <= s.min;
 const stepFor = s => { if (s.step) return [s.step, s.big || s.step * 5]; const n = norm(s.unit); return n === 'g' || n === 'ml' ? [100, 500] : n === 'kg' || n === 'l' ? [0.1, 0.5] : [1, 10]; };
 const buyTerm = s => encodeURIComponent(T(s.name).replace(/\s*\(.*?\)/g, ''));
-/* Liens d'achat : Amazon, Metro et KORO ; le moins cher des prix connus est mis en vert. */
-const koroTerm = s => /koro/i.test(s.supplier) || !T(s.alias) ? buyTerm(s) : encodeURIComponent(T(s.alias).split(';')[0].replace(/\s*\(.*?\)/g, '').trim());
+/* Liens d'achat : Amazon, Metro, KORO et Leclerc ; le moins cher des prix connus est mis en vert. */
+/* Recherche chez un autre fournisseur : le nom générique (1er « autre nom ») plutôt que le nom de marque d'un autre magasin. */
+const termFor = (s, re) => re.test(s.supplier) || !T(s.alias) ? buyTerm(s) : encodeURIComponent(T(s.alias).split(';')[0].replace(/\s*\(.*?\)/g, '').trim());
+const koroTerm = s => termFor(s, /koro/i);
+// Recherche Leclerc nationale ; pour ton Drive, remplacer par l'adresse de recherche de ton magasin (le terme est ajouté à la fin).
+const LECLERC_SEARCH = 'https://www.e.leclerc/recherche?q=';
 function buyLinks(s) {
-  const prices = [['a', s.pa], ['m', s.pm], ['k', s.pk]].filter(([, v]) => v != null);
+  const prices = [['a', s.pa], ['m', s.pm], ['k', s.pk], ['l', s.pl]].filter(([, v]) => v != null);
   const best = prices.length > 1 ? prices.reduce((x, y) => (y[1] < x[1] ? y : x))[0] : null;
   const az = s.asin ? 'https://www.amazon.fr/gp/aws/cart/add.html?ASIN.1=' + encodeURIComponent(s.asin) + '&Quantity.1=1' : 'https://www.amazon.fr/s?k=' + buyTerm(s);
   const me = 'https://shop.metro.fr/shop/search?q=' + buyTerm(s);
   const ko = 'https://www.koro.fr/search?search=' + koroTerm(s);
   const link = (k, href, label, price) => `<a class="${best === k ? 'best' : ''}" href="${esc(href)}" target="_blank" rel="noopener">${label}${price != null ? ' · ' + eur(price) : ''}${best === k ? ' · moins cher' : ''}</a>`;
-  return `<div class="buy">${link('a', az, s.asin ? 'Panier Amazon' : 'Chercher sur Amazon', s.pa)}${link('m', me, 'Chercher sur Metro', s.pm)}${link('k', ko, 'Chercher sur KORO', s.pk)}</div>`;
+  return `<div class="buy">${link('a', az, s.asin ? 'Panier Amazon' : 'Chercher sur Amazon', s.pa)}${link('m', me, 'Chercher sur Metro', s.pm)}${link('k', ko, 'Chercher sur KORO', s.pk)}${link('l', LECLERC_SEARCH + termFor(s, /leclerc/i), 'Chercher sur Leclerc', s.pl)}</div>`;
 }
 function viewStock() {
   const cats = [...new Set(S.stock.map(s => categoryOf(s.name)))].sort((a, b) => a.localeCompare(b, 'fr')), low = S.stock.filter(isLow).length;

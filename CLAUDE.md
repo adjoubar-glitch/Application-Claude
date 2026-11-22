@@ -30,3 +30,7 @@ Les recettes sont les onglets de la Google Sheet (`1ZRWyzaKoa19PQx4Ysn1gs2aUc9KR
 - Puis `Guide de Fabrication & Conseils du Chef` et les étapes `1. Titre : texte`. Le titre d'étape qui reprend un mot du bloc rattache l'étape à ce bloc.
 - La Sheet est en français : les formules séparent les arguments par `;` (ex. `=SUMIF(C9:C16;"g";B9:B16)`).
 - Vérifier ensuite avec le parseur (extraire le bloc `/*PARSER-START*/…/*PARSER-END*/` d'`index.html` dans Node) : aucun `issues`, bon nombre d'ingrédients et d'étapes.
+
+## Inventaire (`App_Stock`) et prix fournisseurs
+
+Colonnes : A nom, B autres noms (`;`), C quantité, D unité, E seuil, F fournisseur, G pas, H grand pas, I ASIN, J prix Amazon, K prix Metro, L prix KORO, M prix Leclerc (TTC, par paquet ; au kilo si les tailles diffèrent, et le dire dans le nom). L'écran Stocks affiche un lien de recherche par fournisseur et met en vert le moins cher des prix connus. Le lien Leclerc utilise `LECLERC_SEARCH` dans `index.html` (recherche nationale par défaut).
